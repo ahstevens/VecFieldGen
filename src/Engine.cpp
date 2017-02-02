@@ -32,9 +32,8 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 		memcpy(&key, data, sizeof(key));
 
 		if (key == GLFW_KEY_R)
-		{
-			m_pVFG->init(6u);
-		}
+			m_pVFG->init(6u, 8u);
+
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
 		if (key == GLFW_KEY_LEFT)
@@ -73,7 +72,7 @@ bool Engine::init()
 	init_shaders();
 		
 	m_pVFG = new VectorFieldGenerator();
-	m_pVFG->init(6u);
+	m_pVFG->init(6u, 8u);
 
 	return true;
 }

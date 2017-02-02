@@ -15,7 +15,6 @@ VectorFieldGenerator::VectorFieldGenerator()
 	m_Distribuion = std::uniform_real_distribution<float>(-1.f, 1.f);
 
 	m_pSphere = new Icosphere(4);
-	m_pSphere->setScale(0.025f);
 }
 
 VectorFieldGenerator::~VectorFieldGenerator()
@@ -24,18 +23,20 @@ VectorFieldGenerator::~VectorFieldGenerator()
 		delete m_pSphere;
 }
 
-void VectorFieldGenerator::init(unsigned int nControlPoints)
+void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int nGridPoints)
 {	
 	if (m_vControlPoints.size() > 0u)
 	{
 		m_vControlPoints.clear();
+		m_v3DGridPairs.clear();
 		DebugDrawer::getInstance().flushLines();
 	}
 
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
+	DebugDrawer::getInstance().drawTransform(1.f);
 
-	double cpMat[6][6];
-
+	std::vector<std::vector<double>> cpMat;
+	
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
 	{
 		ControlPoint cp;
@@ -44,57 +45,119 @@ void VectorFieldGenerator::init(unsigned int nControlPoints)
 
 		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, glm::vec3(0.f));
 
-		cpMat[i][0] = static_cast<double>(cp.pos.x);
-		cpMat[i][1] = static_cast<double>(cp.pos.y);
-		cpMat[i][2] = static_cast<double>(cp.pos.z);
-		cpMat[i][3] = static_cast<double>(cp.dir.x);
-		cpMat[i][4] = static_cast<double>(cp.dir.y);
-		cpMat[i][5] = static_cast<double>(cp.dir.z);
+		std::vector<double> cpInfo;
+		cpInfo.push_back(static_cast<double>(cp.pos.x));
+		cpInfo.push_back(static_cast<double>(cp.pos.y));
+		cpInfo.push_back(static_cast<double>(cp.pos.z));
+		cpInfo.push_back(static_cast<double>(cp.dir.x));
+		cpInfo.push_back(static_cast<double>(cp.dir.y));
+		cpInfo.push_back(static_cast<double>(cp.dir.z));
+
+		cpMat.push_back(cpInfo);
 
 		m_vControlPoints.push_back(cp);
 	}
 
 	alglib::rbfmodel model;
-	alglib::rbfreport rep;
-
-	alglib::rbfcreate(3, 3, model);
+	alglib::rbfcreate(3, 3, model); // 3-dimensional space with 3-component vectors as output
 	alglib::real_2d_array xy0;
-	xy0.setcontent(6, 6, *cpMat);
+	xy0.setcontent(nControlPoints, 6, &(cpMat[0][0]));
 	
-	alglib::rbfbuildmodel(model, rep);
+	alglib::rbfsetpoints(model, xy0);
 
-	double coords[8 * 3] = {
-		-1., -1., -1.,
-		-1., -1., 1.,
-		-1., 1., -1.,
-		1., -1., -1.,
-		1., 1., 1.,
-		-1., 1., 1.,
-		1., -1., 1.,
-		1., 1., -1.
-	};
-	alglib::real_1d_array samplePoints;
-	samplePoints.setcontent(8 * 3, coords);
-	alglib::real_1d_array outVecs;
+	alglib::rbfsetzeroterm(model);
 
-	alglib::rbfcalc(model, samplePoints, outVecs);
+	alglib::rbfreport rep;
+	try
+	{
+		alglib::rbfbuildmodel(model, rep);
+	}
+	catch (alglib::ap_error e)
+	{
+		printf("error msg: %s\n", e.msg.c_str());
+	}
 	
+	for (unsigned int i = 0; i < nGridPoints; ++i)
+	{
+		std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>> frame;
+		for (unsigned int j = 0; j < nGridPoints; ++j)
+		{
+			std::vector<std::pair<glm::vec3, glm::vec3>> row;
+			for (unsigned int k = 0; k < nGridPoints; ++k)
+			{
+				glm::vec3 point;
+				point.x = -1.f + k * (2.f / (nGridPoints - 1));
+				point.y = -1.f + j * (2.f / (nGridPoints - 1));
+				point.z = -1.f + i * (2.f / (nGridPoints - 1));
+
+				alglib::real_1d_array x;
+				double tmp[3];
+				tmp[0] = static_cast<double>(point.x);
+				tmp[1] = static_cast<double>(point.y);
+				tmp[2] = static_cast<double>(point.z);
+				x.setcontent(3, tmp);
+				alglib::real_1d_array y;
+
+				alglib::rbfcalc(model, x, y);
+				
+				glm::vec3 outVec;
+				outVec.x = static_cast<float>(y.getcontent()[0]);
+				outVec.y = static_cast<float>(y.getcontent()[1]);
+				outVec.z = static_cast<float>(y.getcontent()[2]);
+
+				row.push_back(std::pair<glm::vec3, glm::vec3>(point, outVec));
+			}
+			frame.push_back(row);
+		}
+		m_v3DGridPairs.push_back(frame);
+	}
 }
 
 void VectorFieldGenerator::draw(const Shader & s)
 {
 	DebugDrawer::getInstance().setTransformDefault();
 
-	for (auto const &cp : m_vControlPoints)
+	// DRAW CONTROL POINTS
 	{
-		m_pSphere->setPosition(cp.pos);
-		m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
+		m_pSphere->setScale(0.025f);
 
-		m_pSphere->draw(s);
+		for (auto const &cp : m_vControlPoints)
+		{
+			m_pSphere->setPosition(cp.pos);
+			m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
 
-		m_pSphere->setPosition(cp.pos + cp.dir);
-		m_pSphere->m_vec3DiffColor = glm::vec3(0.f);
+			m_pSphere->draw(s);
 
-		m_pSphere->draw(s);
+			m_pSphere->setPosition(cp.pos + cp.dir);
+			m_pSphere->m_vec3DiffColor = glm::vec3(0.f);
+
+			m_pSphere->draw(s);
+		}
+	}
+
+	// DRAW VECTOR FIELD
+	{
+		m_pSphere->setScale(0.005f);
+
+		for (auto const &frame : m_v3DGridPairs)
+		{
+			for (auto const &row : frame)
+			{
+				for (auto const &gridPair : row)
+				{
+					m_pSphere->setPosition(gridPair.first);
+					m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+
+					m_pSphere->draw(s);
+
+					//m_pSphere->setPosition(gridPair.first + 0.1f * gridPair.second);
+					//m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+
+					//m_pSphere->draw(s);
+
+					DebugDrawer::getInstance().drawLine(gridPair.first, gridPair.first + gridPair.second, (gridPair.second + 1.f) / 2.f);
+				}
+			}
+		}
 	}
 }

@@ -13,7 +13,7 @@ public:
 	VectorFieldGenerator();
 	~VectorFieldGenerator();
 
-	void init(unsigned int nControlPoints);
+	void init(unsigned int nControlPoints, unsigned int nGridPoints);
 	
 	void draw(const Shader &s);
 
@@ -29,6 +29,7 @@ private:
 
 	std::vector<ControlPoint> m_vControlPoints;
 
+	std::vector<std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>>> m_v3DGridPairs;
 	Icosphere *m_pSphere;
 };
 
