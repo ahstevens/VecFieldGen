@@ -4,6 +4,9 @@
 
 #include "DebugDrawer.h"
 
+#include <alglib/ap.h>
+#include <alglib/interpolation.h>
+
 VectorFieldGenerator::VectorFieldGenerator()
 	: m_pSphere(NULL)
 {
@@ -17,6 +20,8 @@ VectorFieldGenerator::VectorFieldGenerator()
 
 VectorFieldGenerator::~VectorFieldGenerator()
 {
+	if (m_pSphere)
+		delete m_pSphere;
 }
 
 void VectorFieldGenerator::init(unsigned int nControlPoints)
@@ -27,6 +32,10 @@ void VectorFieldGenerator::init(unsigned int nControlPoints)
 		DebugDrawer::getInstance().flushLines();
 	}
 
+	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
+
+	double cpMat[6][6];
+
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
 	{
 		ControlPoint cp;
@@ -35,10 +44,41 @@ void VectorFieldGenerator::init(unsigned int nControlPoints)
 
 		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, glm::vec3(0.f));
 
+		cpMat[i][0] = static_cast<double>(cp.pos.x);
+		cpMat[i][1] = static_cast<double>(cp.pos.y);
+		cpMat[i][2] = static_cast<double>(cp.pos.z);
+		cpMat[i][3] = static_cast<double>(cp.dir.x);
+		cpMat[i][4] = static_cast<double>(cp.dir.y);
+		cpMat[i][5] = static_cast<double>(cp.dir.z);
+
 		m_vControlPoints.push_back(cp);
 	}
 
-	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
+	alglib::rbfmodel model;
+	alglib::rbfreport rep;
+
+	alglib::rbfcreate(3, 3, model);
+	alglib::real_2d_array xy0;
+	xy0.setcontent(6, 6, *cpMat);
+	
+	alglib::rbfbuildmodel(model, rep);
+
+	double coords[8 * 3] = {
+		-1., -1., -1.,
+		-1., -1., 1.,
+		-1., 1., -1.,
+		1., -1., -1.,
+		1., 1., 1.,
+		-1., 1., 1.,
+		1., -1., 1.,
+		1., 1., -1.
+	};
+	alglib::real_1d_array samplePoints;
+	samplePoints.setcontent(8 * 3, coords);
+	alglib::real_1d_array outVecs;
+
+	alglib::rbfcalc(model, samplePoints, outVecs);
+	
 }
 
 void VectorFieldGenerator::draw(const Shader & s)

@@ -72,11 +72,13 @@
     <OutDir>$(SolutionDir)..\..\build\$(Configuration)\</OutDir>
     <IncludePath>$(SolutionDir)..\..\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\$(Platform);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <SourcePath>$(VC_SourcePath);</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)..\..\build\$(Configuration)\</OutDir>
     <IncludePath>$(SolutionDir)..\..\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\$(Platform);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <SourcePath>$(SourcePath)</SourcePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -125,6 +127,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\alglib\alglibinternal.h" />
+    <ClInclude Include="..\..\include\alglib\alglibmisc.h" />
+    <ClInclude Include="..\..\include\alglib\ap.h" />
+    <ClInclude Include="..\..\include\alglib\dataanalysis.h" />
+    <ClInclude Include="..\..\include\alglib\diffequations.h" />
+    <ClInclude Include="..\..\include\alglib\fasttransforms.h" />
+    <ClInclude Include="..\..\include\alglib\integration.h" />
+    <ClInclude Include="..\..\include\alglib\interpolation.h" />
+    <ClInclude Include="..\..\include\alglib\linalg.h" />
+    <ClInclude Include="..\..\include\alglib\optimization.h" />
+    <ClInclude Include="..\..\include\alglib\solvers.h" />
+    <ClInclude Include="..\..\include\alglib\specialfunctions.h" />
+    <ClInclude Include="..\..\include\alglib\statistics.h" />
+    <ClInclude Include="..\..\include\alglib\stdafx.h" />
     <ClInclude Include="..\BroadcastSystem.h" />
     <ClInclude Include="..\Camera.h" />
     <ClInclude Include="..\DebugDrawer.h" />
@@ -137,6 +153,19 @@
     <ClInclude Include="..\VectorFieldGenerator.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\include\alglib\alglibinternal.cpp" />
+    <ClCompile Include="..\..\include\alglib\alglibmisc.cpp" />
+    <ClCompile Include="..\..\include\alglib\ap.cpp" />
+    <ClCompile Include="..\..\include\alglib\dataanalysis.cpp" />
+    <ClCompile Include="..\..\include\alglib\diffequations.cpp" />
+    <ClCompile Include="..\..\include\alglib\fasttransforms.cpp" />
+    <ClCompile Include="..\..\include\alglib\integration.cpp" />
+    <ClCompile Include="..\..\include\alglib\interpolation.cpp" />
+    <ClCompile Include="..\..\include\alglib\linalg.cpp" />
+    <ClCompile Include="..\..\include\alglib\optimization.cpp" />
+    <ClCompile Include="..\..\include\alglib\solvers.cpp" />
+    <ClCompile Include="..\..\include\alglib\specialfunctions.cpp" />
+    <ClCompile Include="..\..\include\alglib\statistics.cpp" />
     <ClCompile Include="..\Engine.cpp" />
     <ClCompile Include="..\GLFWInputBroadcaster.cpp" />
     <ClCompile Include="..\Icosphere.cpp" />
