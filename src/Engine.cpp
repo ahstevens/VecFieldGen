@@ -30,6 +30,26 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 		int key;
 		memcpy(&key, data, sizeof(key));
 
+		if (key == GLFW_KEY_R)
+		{
+			for (auto s : m_vpSpheres)
+				delete s;
+
+			m_vpSpheres.clear();
+
+			VectorFieldGenerator vfg;
+			vfg.init(6u);
+
+			std::vector<glm::vec3> v = vfg.getControlPoints();
+
+			for (int i = 0; i < v.size(); ++i)
+			{
+				Icosphere* s = new Icosphere(4, glm::vec3(1.f, 0.f, 1.f), glm::vec3(1.f));
+				s->setPosition(v[i]);
+				s->setScale(0.05f);
+				m_vpSpheres.push_back(s);
+			}
+		}
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
 		if (key == GLFW_KEY_LEFT)
