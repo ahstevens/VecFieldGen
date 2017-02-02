@@ -11,7 +11,7 @@
 #include "LightingSystem.h"
 #include "GLFWInputBroadcaster.h"
 
-#include "Icosphere.h" // example
+#include "VectorFieldGenerator.h"
 
 #define MS_PER_UPDATE 0.0333333333f
 #define CAST_RAY_LEN 1000.f
@@ -24,6 +24,8 @@ public:
 	GLFWwindow* m_pWindow;
 	LightingSystem* m_pLightingSystem;
 
+	VectorFieldGenerator* m_pVFG;
+
 	// Constants
 	const int m_iWidth = 1280;
 	const int m_iHeight = 800;
@@ -34,10 +36,8 @@ public:
 
 	Camera  *m_pCamera;
 	std::vector<Shader*> m_vpShaders;
-	Shader *m_pShaderLighting, *m_pShaderNormals;
-
-	std::vector<Icosphere*> m_vpSpheres;
-
+	Shader *m_pShaderLighting, *m_pShaderNormals, *m_pLineShader;
+	
 private:
 	glm::mat4 m_mat4WorldRotation;
 

@@ -127,6 +127,7 @@
   <ItemGroup>
     <ClInclude Include="..\BroadcastSystem.h" />
     <ClInclude Include="..\Camera.h" />
+    <ClInclude Include="..\DebugDrawer.h" />
     <ClInclude Include="..\Engine.h" />
     <ClInclude Include="..\GLFWInputBroadcaster.h" />
     <ClInclude Include="..\Icosphere.h" />

@@ -4,11 +4,12 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include "VectorFieldGenerator.h"
+#include "DebugDrawer.h"
 
 Engine::Engine(int argc, char* argv[])
 	: m_pWindow(NULL)
 	, m_pLightingSystem(NULL)
+	, m_pVFG(NULL)
 	, m_fDeltaTime(0.f)
 	, m_fLastTime(0.f)
 	, m_pCamera(NULL)
@@ -32,23 +33,7 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 
 		if (key == GLFW_KEY_R)
 		{
-			for (auto s : m_vpSpheres)
-				delete s;
-
-			m_vpSpheres.clear();
-
-			VectorFieldGenerator vfg;
-			vfg.init(6u);
-
-			std::vector<glm::vec3> v = vfg.getControlPoints();
-
-			for (int i = 0; i < v.size(); ++i)
-			{
-				Icosphere* s = new Icosphere(4, glm::vec3(1.f, 0.f, 1.f), glm::vec3(1.f));
-				s->setPosition(v[i]);
-				s->setScale(0.05f);
-				m_vpSpheres.push_back(s);
-			}
+			m_pVFG->init(6u);
 		}
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
@@ -87,18 +72,8 @@ bool Engine::init()
 	init_camera();
 	init_shaders();
 		
-	VectorFieldGenerator vfg;
-	vfg.init(6u);
-
-	std::vector<glm::vec3> v = vfg.getControlPoints();
-
-	for (int i = 0; i < v.size(); ++i)
-	{
-		Icosphere* s = new Icosphere(4, glm::vec3(1.f, 0.f, 1.f), glm::vec3(1.f));
-		s->setPosition(v[i]);
-		s->setScale(0.05f);
-		m_vpSpheres.push_back(s);
-	}
+	m_pVFG = new VectorFieldGenerator();
+	m_pVFG->init(6u);
 
 	return true;
 }
@@ -161,6 +136,8 @@ void Engine::update(float dt)
 			m_pLightingSystem->update(view, shader);
 	}
 
+	DebugDrawer::getInstance().setVPMatrix(projection * view * m_mat4WorldRotation);
+
 	Shader::off();
 }
 
@@ -180,9 +157,10 @@ void Engine::render()
 
 		m_pLightingSystem->draw(*shader);
 
-		for (auto const &s : m_vpSpheres)
-			s->draw(*shader);
+		m_pVFG->draw(*shader);
 	}
+
+	DebugDrawer::getInstance().render();
 
 	Shader::off();
 }
@@ -243,7 +221,7 @@ void Engine::init_lighting()
 
 void Engine::init_camera()
 {
-	m_pCamera = new Camera(glm::vec3(0.f, 0.f, 15.f));
+	m_pCamera = new Camera(glm::vec3(0.f, 0.f, 5.f));
 	GLFWInputBroadcaster::getInstance().attach(m_pCamera);
 }
 
