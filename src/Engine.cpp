@@ -6,6 +6,8 @@
 
 #include "DebugDrawer.h"
 
+#define GRID_RES 16u
+
 Engine::Engine(int argc, char* argv[])
 	: m_pWindow(NULL)
 	, m_pLightingSystem(NULL)
@@ -32,7 +34,7 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 		memcpy(&key, data, sizeof(key));
 
 		if (key == GLFW_KEY_R)
-			m_pVFG->init(6u, 8u);
+			m_pVFG->init(6u, GRID_RES);
 
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
@@ -72,7 +74,7 @@ bool Engine::init()
 	init_shaders();
 		
 	m_pVFG = new VectorFieldGenerator();
-	m_pVFG->init(6u, 8u);
+	m_pVFG->init(6u, GRID_RES);
 
 	return true;
 }

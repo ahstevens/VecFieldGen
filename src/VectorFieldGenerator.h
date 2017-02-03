@@ -33,7 +33,6 @@ private:
 	Icosphere *m_pSphere;
 
 private:
-	bool interpolateAlglib(int resolution);
 	bool interpolate(int resolution, float gaussianShape = 1.f);
 };
 

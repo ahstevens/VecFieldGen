@@ -4,9 +4,6 @@
 
 #include "DebugDrawer.h"
 
-#include <alglib/ap.h>
-#include <alglib/interpolation.h>
-
 VectorFieldGenerator::VectorFieldGenerator()
 	: m_pSphere(NULL)
 {
@@ -99,83 +96,6 @@ void VectorFieldGenerator::draw(const Shader & s)
 	}
 }
 
-bool VectorFieldGenerator::interpolateAlglib(int resolution)
-{
-	std::vector<std::vector<double>> cpMat;
-
-	for (auto const &cp : m_vControlPoints)
-	{
-		std::vector<double> cpInfo;
-		cpInfo.push_back(static_cast<double>(cp.pos.x));
-		cpInfo.push_back(static_cast<double>(cp.pos.y));
-		cpInfo.push_back(static_cast<double>(cp.pos.z));
-		cpInfo.push_back(static_cast<double>(cp.dir.x));
-		cpInfo.push_back(static_cast<double>(cp.dir.y));
-		cpInfo.push_back(static_cast<double>(cp.dir.z));
-
-		cpMat.push_back(cpInfo);
-	}
-
-	alglib::rbfmodel model;
-	alglib::rbfcreate(3, 3, model); // 3-dimensional space with 3-component vectors as output
-	alglib::real_2d_array xy0;
-	xy0.setcontent(m_vControlPoints.size(), 6, &(cpMat[0][0]));
-
-	alglib::rbfsetpoints(model, xy0);
-
-	alglib::rbfsetzeroterm(model);
-
-	alglib::rbfreport rep;
-	try
-	{
-		alglib::rbfbuildmodel(model, rep);
-	}
-	catch (alglib::ap_error e)
-	{
-		printf("error msg: %s\n", e.msg.c_str());
-		return false;
-	}
-
-	m_v3DGridPairs.clear();
-
-	for (unsigned int i = 0; i < resolution; ++i)
-	{
-		std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>> frame;
-		for (unsigned int j = 0; j < resolution; ++j)
-		{
-			std::vector<std::pair<glm::vec3, glm::vec3>> row;
-			for (unsigned int k = 0; k < resolution; ++k)
-			{
-				glm::vec3 point;
-				point.x = -1.f + k * (2.f / (resolution - 1));
-				point.y = -1.f + j * (2.f / (resolution - 1));
-				point.z = -1.f + i * (2.f / (resolution - 1));
-
-				alglib::real_1d_array x;
-				double tmp[3];
-				tmp[0] = static_cast<double>(point.x);
-				tmp[1] = static_cast<double>(point.y);
-				tmp[2] = static_cast<double>(point.z);
-				x.setcontent(3, tmp);
-				alglib::real_1d_array y;
-
-				alglib::rbfcalc(model, x, y);
-
-				glm::vec3 outVec;
-				outVec.x = static_cast<float>(y.getcontent()[0]);
-				outVec.y = static_cast<float>(y.getcontent()[1]);
-				outVec.z = static_cast<float>(y.getcontent()[2]);
-
-				row.push_back(std::pair<glm::vec3, glm::vec3>(point, outVec));
-			}
-			frame.push_back(row);
-		}
-		m_v3DGridPairs.push_back(frame);
-	}
-
-	return true;
-}
-
 bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
 {
 	m_v3DGridPairs.clear();
@@ -197,7 +117,7 @@ bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
 				for (auto const &cp : m_vControlPoints)
 				{
 					float r = glm::length(cp.pos - point);
-					float tmp = exp(-(gaussianShape * r * r));
+					float tmp = exp(-(gaussianShape * gaussianShape * r * r));
 
 					outVec += cp.dir * tmp;
 				}
