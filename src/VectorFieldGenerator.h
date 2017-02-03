@@ -13,7 +13,7 @@ public:
 	VectorFieldGenerator();
 	~VectorFieldGenerator();
 
-	void init(unsigned int nControlPoints, unsigned int nGridPoints);
+	void init(unsigned int nControlPoints, unsigned int gridResolution);
 	
 	void draw(const Shader &s);
 
@@ -31,5 +31,9 @@ private:
 
 	std::vector<std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>>> m_v3DGridPairs;
 	Icosphere *m_pSphere;
+
+private:
+	bool interpolateAlglib(int resolution);
+	bool interpolate(int resolution, float gaussianShape = 1.f);
 };
 
