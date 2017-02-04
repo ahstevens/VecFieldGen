@@ -6,7 +6,7 @@
 
 #include "DebugDrawer.h"
 
-#define GRID_RES 16u
+#define GRID_RES 32u
 
 Engine::Engine(int argc, char* argv[])
 	: m_pWindow(NULL)

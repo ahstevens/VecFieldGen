@@ -31,7 +31,7 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
 	DebugDrawer::getInstance().drawTransform(1.f);
-		
+	
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
 	{
 		ControlPoint cp;
@@ -63,37 +63,35 @@ void VectorFieldGenerator::draw(const Shader & s)
 			m_pSphere->draw(s);
 
 			m_pSphere->setPosition(cp.pos + cp.dir);
-			m_pSphere->m_vec3DiffColor = glm::vec3(0.f);
+			m_pSphere->m_vec3DiffColor = (cp.dir + 1.f) / 2.f;
 
 			m_pSphere->draw(s);
 		}
 	}
 
 	// DRAW VECTOR FIELD
-	{
-		m_pSphere->setScale(0.005f);
+	//{
+	//	m_pSphere->setScale(0.005f);
 
-		for (auto const &frame : m_v3DGridPairs)
-		{
-			for (auto const &row : frame)
-			{
-				for (auto const &gridPair : row)
-				{
-					m_pSphere->setPosition(gridPair.first);
-					m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+	//	for (auto const &frame : m_v3DGridPairs)
+	//	{
+	//		for (auto const &row : frame)
+	//		{
+	//			for (auto const &gridPair : row)
+	//			{
+	//				m_pSphere->setPosition(gridPair.first);
+	//				m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
 
-					m_pSphere->draw(s);
+	//				m_pSphere->draw(s);
 
-					//m_pSphere->setPosition(gridPair.first + 0.1f * gridPair.second);
-					//m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+	//				//m_pSphere->setPosition(gridPair.first + 0.1f * gridPair.second);
+	//				//m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
 
-					//m_pSphere->draw(s);
-
-					DebugDrawer::getInstance().drawLine(gridPair.first, gridPair.first + gridPair.second, (gridPair.second + 1.f) / 2.f);
-				}
-			}
-		}
-	}
+	//				//m_pSphere->draw(s);
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
@@ -121,6 +119,8 @@ bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
 
 					outVec += cp.dir * tmp;
 				}
+
+				DebugDrawer::getInstance().drawLine(point, point + outVec, (outVec + 1.f) / 2.f);
 
 				row.push_back(std::pair<glm::vec3, glm::vec3>(point, outVec));
 			}
