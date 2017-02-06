@@ -23,45 +23,29 @@ VectorFieldGenerator::~VectorFieldGenerator()
 void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridResolution)
 {	
 	m_v3DGridPairs.clear();
+
 	DebugDrawer::getInstance().flushLines();
 
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
 
-	createControlPoints(nControlPoints);
-
 	m_fGaussianShape = 1.2f;
 
-	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
-	m_vCPXVals = Eigen::VectorXf(nControlPoints);
-	m_vCPYVals = Eigen::VectorXf(nControlPoints);
-	m_vCPZVals = Eigen::VectorXf(nControlPoints);
-		
-	for (unsigned int i = 0u; i < m_vControlPoints.size(); ++i)
-	{		
-		for (int j = 0; j < m_vControlPoints.size(); ++j)
-		{
-			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
-			float gaussian = gaussianBasis(r, m_fGaussianShape);
-			m_matControlPointKernel(i, j) = gaussian;
-		}
-
-		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
-		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
-		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
-	}
-
-	// solve for lambda coefficients in each (linearly independent) dimension using LU decomposition
-	m_vLambdaX = m_matControlPointKernel.fullPivLu().solve(m_vCPXVals);
-	m_vLambdaY = m_matControlPointKernel.fullPivLu().solve(m_vCPYVals);
-	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
+	createControlPoints(nControlPoints);
 
 	makeGrid(gridResolution, m_fGaussianShape);
+
+	std::cout << "Advects from center: " << checkCenterAdvection(0.5f) << std::endl;
 }
 
 void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 {
 	if (m_vControlPoints.size() > 0u)	
 		m_vControlPoints.clear();
+
+	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
+	m_vCPXVals = Eigen::VectorXf(nControlPoints);
+	m_vCPYVals = Eigen::VectorXf(nControlPoints);
+	m_vCPZVals = Eigen::VectorXf(nControlPoints);
 
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
 	{
@@ -74,10 +58,30 @@ void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 
 		// Draw debug line for control point
 		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, glm::vec3(0.f));
+		
+		// store each component of the control point vector direction
+		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
+		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
+		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
+
+		// fill in the distance matrix kernel entries for this control point
+		m_matControlPointKernel(i, i) = 1.f;
+		for (int j = static_cast<int>(i) - 1; j >= 0; --j)
+		{
+			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
+			float gaussian = gaussianBasis(r, m_fGaussianShape);
+			m_matControlPointKernel(i, j) = m_matControlPointKernel(j, i) = gaussian;
+		}
 	}
+
+	// solve for lambda coefficients in each (linearly independent) dimension using LU decomposition of distance matrix
+	//     -the lambda coefficients are the interpolation weights for each control(/interpolation data) point
+	m_vLambdaX = m_matControlPointKernel.fullPivLu().solve(m_vCPXVals);
+	m_vLambdaY = m_matControlPointKernel.fullPivLu().solve(m_vCPYVals);
+	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
 }
 
-bool VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
+void VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 {
 	m_v3DGridPairs.clear();
 
@@ -97,7 +101,7 @@ bool VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 
 				glm::vec3 res = interpolate(point);
 
-				DebugDrawer::getInstance().drawLine(point, point + res, (res + 1.f) / 2.f);
+				//DebugDrawer::getInstance().drawLine(point, point + res, (res + 1.f) / 2.f);
 
 				row.push_back(std::pair<glm::vec3, glm::vec3>(point, res));
 			}
@@ -105,8 +109,6 @@ bool VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 		}
 		m_v3DGridPairs.push_back(frame);
 	}
-
-	return true;
 }
 
 glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
@@ -128,6 +130,29 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 	}
 
 	return outVec;
+}
+
+bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
+{
+	float stepSize = 0.01f;
+	float totalTime = 100.f;
+	bool advected = false;
+	glm::vec3 pt(0.f);
+	for (float i = 0.f; i < totalTime; i += stepSize)
+	{
+		glm::vec3 newPt = pt + stepSize * interpolate(pt);
+		
+		DebugDrawer::getInstance().drawLine(pt, newPt, glm::vec3(1.f, 0.f, 0.f));
+
+		pt = newPt;
+
+		if (glm::length(pt) >= sphereRadius)
+		{
+			advected = true;
+			//break;
+		}
+	}
+	return advected;
 }
 
 float VectorFieldGenerator::gaussianBasis(float radius, float eta)

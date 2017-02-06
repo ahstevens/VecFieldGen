@@ -40,8 +40,9 @@ private:
 
 private:
 	void createControlPoints(unsigned int nControlPoints);
-	bool makeGrid(int resolution, float gaussianShape = 1.f);
+	void makeGrid(int resolution, float gaussianShape = 1.f);
 	glm::vec3 interpolate(glm::vec3 pt);
+	bool checkCenterAdvection(float sphereRadius);
 	float gaussianBasis(float r, float eta);
 };
 
