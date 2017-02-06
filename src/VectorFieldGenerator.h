@@ -31,6 +31,7 @@ private:
 
 	std::vector<ControlPoint> m_vControlPoints;
 
+	float m_fGaussianShape;
 	Eigen::MatrixXf m_matControlPointKernel;
 	Eigen::VectorXf m_vCPXVals, m_vCPYVals, m_vCPZVals;
 	Eigen::VectorXf m_vLambdaX, m_vLambdaY, m_vLambdaZ;
@@ -38,6 +39,9 @@ private:
 	Icosphere *m_pSphere;
 
 private:
-	bool interpolate(int resolution, float gaussianShape = 1.f);
+	void createControlPoints(unsigned int nControlPoints);
+	bool makeGrid(int resolution, float gaussianShape = 1.f);
+	glm::vec3 interpolate(glm::vec3 pt);
+	float gaussianBasis(float r, float eta);
 };
 

@@ -61,7 +61,7 @@ bool Engine::init()
 	// Load GLFW 
 	glfwInit();
 
-	m_pWindow = init_gl_context("OpenGL Seaweed Viewer");
+	m_pWindow = init_gl_context("OpenGL Vector Field Generator");
 
 	if (!m_pWindow)
 		return false;

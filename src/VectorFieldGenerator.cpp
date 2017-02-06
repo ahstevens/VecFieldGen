@@ -22,20 +22,47 @@ VectorFieldGenerator::~VectorFieldGenerator()
 
 void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridResolution)
 {	
-	if (m_vControlPoints.size() > 0u)
-	{
-		m_vControlPoints.clear();
-		m_v3DGridPairs.clear();
-		DebugDrawer::getInstance().flushLines();
-	}
+	m_v3DGridPairs.clear();
+	DebugDrawer::getInstance().flushLines();
 
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
+
+	createControlPoints(nControlPoints);
+
+	m_fGaussianShape = 1.2f;
 
 	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
 	m_vCPXVals = Eigen::VectorXf(nControlPoints);
 	m_vCPYVals = Eigen::VectorXf(nControlPoints);
 	m_vCPZVals = Eigen::VectorXf(nControlPoints);
 		
+	for (unsigned int i = 0u; i < m_vControlPoints.size(); ++i)
+	{		
+		for (int j = 0; j < m_vControlPoints.size(); ++j)
+		{
+			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
+			float gaussian = gaussianBasis(r, m_fGaussianShape);
+			m_matControlPointKernel(i, j) = gaussian;
+		}
+
+		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
+		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
+		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
+	}
+
+	// solve for lambda coefficients in each (linearly independent) dimension using LU decomposition
+	m_vLambdaX = m_matControlPointKernel.fullPivLu().solve(m_vCPXVals);
+	m_vLambdaY = m_matControlPointKernel.fullPivLu().solve(m_vCPYVals);
+	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
+
+	makeGrid(gridResolution, m_fGaussianShape);
+}
+
+void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
+{
+	if (m_vControlPoints.size() > 0u)	
+		m_vControlPoints.clear();
+
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
 	{
 		// Create control point
@@ -47,32 +74,10 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 
 		// Draw debug line for control point
 		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, glm::vec3(0.f));
-		
-		m_vCPXVals(i) = cp.dir.x;
-		m_vCPYVals(i) = cp.dir.y;
-		m_vCPZVals(i) = cp.dir.z;
-
-		m_matControlPointKernel(i,i) = 1.f;
-		for (int j = static_cast<int>(i) - 1; j >= 0; --j)
-		{
-			float r = glm::length(cp.pos - m_vControlPoints[j].pos);
-			float gaussian = exp(-(1.2 * 1.2 * r * r));
-			m_matControlPointKernel(i, j) = m_matControlPointKernel(j, i) = gaussian;
-		}
 	}
-
-	std::cout << m_matControlPointKernel << std::endl;
-	
-	Eigen::MatrixXf invMat = m_matControlPointKernel.inverse();
-
-	m_vLambdaX = invMat * m_vCPXVals;
-	m_vLambdaY = invMat * m_vCPYVals;
-	m_vLambdaZ = invMat * m_vCPZVals;
-
-	interpolate(gridResolution, 1.2f);
 }
 
-bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
+bool VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 {
 	m_v3DGridPairs.clear();
 
@@ -84,28 +89,17 @@ bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
 			std::vector<std::pair<glm::vec3, glm::vec3>> row;
 			for (unsigned int k = 0; k < resolution; ++k)
 			{
+				// calculate grid point position
 				glm::vec3 point;
 				point.x = -1.f + k * (2.f / (resolution - 1));
 				point.y = -1.f + j * (2.f / (resolution - 1));
 				point.z = -1.f + i * (2.f / (resolution - 1));
 
-				glm::vec3 outVec(0.f);
-				for (int m = 0; m < m_vControlPoints.size(); ++m)
-				{
-					float r = glm::length(point - m_vControlPoints[m].pos);
-					float gaussian = exp(-(gaussianShape * gaussianShape * r * r));
-					float tmpX = m_vLambdaX[m] * gaussian;
-					float tmpY = m_vLambdaY[m] * gaussian;
-					float tmpZ = m_vLambdaZ[m] * gaussian;
+				glm::vec3 res = interpolate(point);
 
-					outVec.x += m_vControlPoints[m].dir.x * tmpX;
-					outVec.y += m_vControlPoints[m].dir.y * tmpY;
-					outVec.z += m_vControlPoints[m].dir.z * tmpZ;
-				}
+				DebugDrawer::getInstance().drawLine(point, point + res, (res + 1.f) / 2.f);
 
-				DebugDrawer::getInstance().drawLine(point, point + outVec, (outVec + 1.f) / 2.f);
-
-				row.push_back(std::pair<glm::vec3, glm::vec3>(point, outVec));
+				row.push_back(std::pair<glm::vec3, glm::vec3>(point, res));
 			}
 			frame.push_back(row);
 		}
@@ -113,6 +107,32 @@ bool VectorFieldGenerator::interpolate(int resolution, float gaussianShape)
 	}
 
 	return true;
+}
+
+glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
+{
+	// find interpolated 3D vector by summing influence from each CP via radial basis function (RBF)
+	glm::vec3 outVec(0.f);
+	for (int m = 0; m < m_vControlPoints.size(); ++m)
+	{
+		float r = glm::length(pt - m_vControlPoints[m].pos);
+		float gaussian = gaussianBasis(r, m_fGaussianShape);
+
+		// interpolate each separate (linearly independent) component of our 3D vector to get CP influence
+		float interpX = m_vLambdaX[m] * gaussian;
+		float interpY = m_vLambdaY[m] * gaussian;
+		float interpZ = m_vLambdaZ[m] * gaussian;
+
+		// add CP influence to resultant vector
+		outVec += glm::vec3(interpX, interpY, interpZ);
+	}
+
+	return outVec;
+}
+
+float VectorFieldGenerator::gaussianBasis(float radius, float eta)
+{
+	return exp(-(eta * radius * radius));
 }
 
 void VectorFieldGenerator::draw(const Shader & s)
