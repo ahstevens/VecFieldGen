@@ -5,6 +5,8 @@
 
 #include <glm/glm.hpp>
 
+#include <Eigen/Dense>
+
 #include "Icosphere.h"
 
 class VectorFieldGenerator
@@ -29,6 +31,9 @@ private:
 
 	std::vector<ControlPoint> m_vControlPoints;
 
+	Eigen::MatrixXf m_matControlPointKernel;
+	Eigen::VectorXf m_vCPXVals, m_vCPYVals, m_vCPZVals;
+	Eigen::VectorXf m_vLambdaX, m_vLambdaY, m_vLambdaZ;
 	std::vector<std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>>> m_v3DGridPairs;
 	Icosphere *m_pSphere;
 
