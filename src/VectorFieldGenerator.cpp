@@ -142,7 +142,7 @@ bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
 	{
 		glm::vec3 newPt = pt + stepSize * interpolate(pt);
 		
-		DebugDrawer::getInstance().drawLine(pt, newPt, glm::vec3(1.f, 0.f, 0.f));
+		DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
 
 		pt = newPt;
 
