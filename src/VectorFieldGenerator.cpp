@@ -36,10 +36,11 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 
 	float dt = 1.f / 90.f;
 	float time = 10.f;
-	float r = 0.1f * sqrt(3);
+	//float r = 0.1f * sqrt(3); // from Forsberg paper
+	float r = 0.6667f;
 	float t, d, td;
 
-	bool advected = checkSphereAdvection(dt, time, r, t, d, td);
+	bool advected = checkSphereAdvection(dt, time, glm::vec3(0.f), r, t, d, td);
 
 	if (advected)
 	{
@@ -53,6 +54,12 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds without advecting through sphere (r = " << r << ")" << std::endl << std::endl;
 	}
 	
+	//std::vector<glm::vec3> seedPoints;
+
+	//for (int i = 0; i < 100; ++i)
+	//	seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
+
+	//advectParticles(seedPoints, 1.f / 90.f, 10.f);
 }
 
 void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
@@ -75,9 +82,9 @@ void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 		m_vControlPoints.push_back(cp);
 
 		// Draw debug line for control point
-		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, (cp.dir + 1.f) / 2.f);
+		//DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, (cp.dir + 1.f) / 2.f);
 		
-		// store each component of the control point vector direction
+		// store each vector component of the control point value
 		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
 		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
 		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
@@ -103,6 +110,9 @@ void VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 {
 	m_v3DGridPairs.clear();
 
+	float cellSize = (2.f / (resolution - 1));
+
+	// create a regular 3D grid at the given resolution and interpolate the field at its nodes
 	for (unsigned int i = 0; i < resolution; ++i)
 	{
 		std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>> frame;
@@ -113,15 +123,15 @@ void VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
 			{
 				// calculate grid point position
 				glm::vec3 point;
-				point.x = -1.f + k * (2.f / (resolution - 1));
-				point.y = -1.f + j * (2.f / (resolution - 1));
-				point.z = -1.f + i * (2.f / (resolution - 1));
+				point.x = -1.f + k * cellSize;
+				point.y = -1.f + j * cellSize;
+				point.z = -1.f + i * cellSize;
 
-				glm::vec3 res = interpolate(point);
+				glm::vec3 flowHere = interpolate(point);
 
-				//DebugDrawer::getInstance().drawLine(point, point + res, (res + 1.f) / 2.f);
+				row.push_back(std::pair<glm::vec3, glm::vec3>(point, flowHere));
 
-				row.push_back(std::pair<glm::vec3, glm::vec3>(point, res));
+				//DebugDrawer::getInstance().drawLine(point, point + flowHere, (flowHere + 1.f) / 2.f);
 			}
 			frame.push_back(row);
 		}
@@ -150,6 +160,23 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 	return outVec;
 }
 
+void VectorFieldGenerator::advectParticles(std::vector<glm::vec3> seedPoints, float dt, float totalTime)
+{
+	for (float i = 0.f; i < totalTime; i += dt)
+	{
+		for (auto &pt : seedPoints)
+		{
+			// advect point by one timestep to get new point
+			glm::vec3 newPt = pt + dt * interpolate(pt);
+
+			DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
+
+			pt = newPt;
+		}
+	}
+}
+
+// Taken from http://stackoverflow.com/questions/5883169/intersection-between-a-line-and-a-sphere
 glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm::vec3 circleCenter, double circleRadius)
 {
 	// http://www.codeproject.com/Articles/19799/Simple-Ray-Tracing-in-C-Part-II-Triangles-Intersec
@@ -202,6 +229,7 @@ glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm
 bool VectorFieldGenerator::checkSphereAdvection(
 	float dt,
 	float totalTime,
+	glm::vec3 sphereCenter,
 	float sphereRadius,
 	float &timeToAdvectSphere,
 	float &distanceToAdvectSphere,
@@ -211,7 +239,7 @@ bool VectorFieldGenerator::checkSphereAdvection(
 	bool advected = false;
 	timeToAdvectSphere = 0.f;
 	float distanceCounter = distanceToAdvectSphere = 0.f;
-	glm::vec3 pt(0.f); // start at the center of the field
+	glm::vec3 pt = sphereCenter; // start at the center of the field
 	for (float i = 0.f; i < totalTime; i += dt)
 	{
 		// advect point by one timestep to get new point
@@ -221,7 +249,7 @@ bool VectorFieldGenerator::checkSphereAdvection(
 
 		distanceCounter += glm::length(newPt - pt);
 
-		if (glm::length(newPt) >= sphereRadius && !advected)
+		if (glm::length(newPt - sphereCenter) >= sphereRadius && !advected)
 		{
 			advected = true;
 			timeToAdvectSphere = i;
@@ -234,7 +262,7 @@ bool VectorFieldGenerator::checkSphereAdvection(
 
 			float crossSize = 0.05f;
 
-			DebugDrawer::getInstance().drawLine(glm::vec3(0.f), exitPt, glm::vec3(1.f, 0.f, 0.f));
+			DebugDrawer::getInstance().drawLine(sphereCenter, exitPt, glm::vec3(1.f, 0.f, 0.f));
 			DebugDrawer::getInstance().drawLine(exitPt - crossSize * x, exitPt + crossSize * x, glm::vec3(1.f, 0.f, 0.f));
 			DebugDrawer::getInstance().drawLine(exitPt - crossSize * y, exitPt + crossSize * y, glm::vec3(1.f, 0.f, 0.f));
 
@@ -259,22 +287,22 @@ void VectorFieldGenerator::draw(const Shader & s)
 	DebugDrawer::getInstance().setTransformDefault();
 
 	// DRAW CONTROL POINTS
-	{
-		m_pSphere->setScale(0.025f);
+	//{
+	//	m_pSphere->setScale(0.025f);
 
-		for (auto const &cp : m_vControlPoints)
-		{
-			m_pSphere->setPosition(cp.pos);
-			m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
+	//	for (auto const &cp : m_vControlPoints)
+	//	{
+	//		m_pSphere->setPosition(cp.pos);
+	//		m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
 
-			m_pSphere->draw(s);
+	//		m_pSphere->draw(s);
 
-			m_pSphere->setPosition(cp.pos + cp.dir);
-			m_pSphere->m_vec3DiffColor = (cp.dir + 1.f) / 2.f;
+	//		m_pSphere->setPosition(cp.pos + cp.dir);
+	//		m_pSphere->m_vec3DiffColor = (cp.dir + 1.f) / 2.f;
 
-			m_pSphere->draw(s);
-		}
-	}
+	//		m_pSphere->draw(s);
+	//	}
+	//}
 
 	// DRAW VECTOR FIELD
 	//{
