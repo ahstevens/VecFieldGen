@@ -42,7 +42,7 @@ private:
 	void createControlPoints(unsigned int nControlPoints);
 	void makeGrid(int resolution, float gaussianShape = 1.f);
 	glm::vec3 interpolate(glm::vec3 pt);
-	bool checkCenterAdvection(float sphereRadius);
+	bool checkSphereAdvection(float dt, float totalTime, float sphereRadius, float &timeToAdvect, float &distanceToAdvect, float &totalDistance);
 	float gaussianBasis(float r, float eta);
 };
 

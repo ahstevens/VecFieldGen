@@ -34,7 +34,25 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 
 	makeGrid(gridResolution, m_fGaussianShape);
 
-	std::cout << "Advects from center: " << checkCenterAdvection(0.5f) << std::endl;
+	float dt = 1.f / 90.f;
+	float time = 10.f;
+	float r = 0.1f * sqrt(3);
+	float t, d, td;
+
+	bool advected = checkSphereAdvection(dt, time, r, t, d, td);
+
+	if (advected)
+	{
+		std::cout << "Particle successfully advected in " << t << " seconds (" << t / dt << " time steps)" << std::endl;
+		std::cout << '\t' << "Particle traveled " << d << " units until advecting through sphere (r = " << r << ")" << std::endl;
+		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds" << std::endl << std::endl;
+	}
+	else
+	{
+		std::cout << "Particled failed to advect!" << std::endl;
+		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds without advecting through sphere (r = " << r << ")" << std::endl << std::endl;
+	}
+	
 }
 
 void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
@@ -57,7 +75,7 @@ void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 		m_vControlPoints.push_back(cp);
 
 		// Draw debug line for control point
-		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, glm::vec3(0.f));
+		DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, (cp.dir + 1.f) / 2.f);
 		
 		// store each component of the control point vector direction
 		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
@@ -181,22 +199,33 @@ glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm
 	return solution2;
 }
 
-bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
+bool VectorFieldGenerator::checkSphereAdvection(
+	float dt,
+	float totalTime,
+	float sphereRadius,
+	float &timeToAdvectSphere,
+	float &distanceToAdvectSphere,
+	float &totalAdvectionDistance
+)
 {
-	float stepSize = 1.f/90.f; // should run @ 90fps
-	float totalTime = 10.f; // particle advection simulation time in seconds
-	bool advected = false; // flag for particle advecting out of sphere
+	bool advected = false;
+	timeToAdvectSphere = 0.f;
+	float distanceCounter = distanceToAdvectSphere = 0.f;
 	glm::vec3 pt(0.f); // start at the center of the field
-	for (float i = 0.f; i < totalTime; i += stepSize)
+	for (float i = 0.f; i < totalTime; i += dt)
 	{
 		// advect point by one timestep to get new point
-		glm::vec3 newPt = pt + stepSize * interpolate(pt);
+		glm::vec3 newPt = pt + dt * interpolate(pt);
 		
 		DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
-		
+
+		distanceCounter += glm::length(newPt - pt);
+
 		if (glm::length(newPt) >= sphereRadius && !advected)
 		{
 			advected = true;
+			timeToAdvectSphere = i;
+			distanceToAdvectSphere = distanceCounter;
 
 			glm::vec3 exitPt = lineSphereIntersection(pt, newPt, glm::vec3(0.f), sphereRadius);
 
@@ -205,6 +234,7 @@ bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
 
 			float crossSize = 0.05f;
 
+			DebugDrawer::getInstance().drawLine(glm::vec3(0.f), exitPt, glm::vec3(1.f, 0.f, 0.f));
 			DebugDrawer::getInstance().drawLine(exitPt - crossSize * x, exitPt + crossSize * x, glm::vec3(1.f, 0.f, 0.f));
 			DebugDrawer::getInstance().drawLine(exitPt - crossSize * y, exitPt + crossSize * y, glm::vec3(1.f, 0.f, 0.f));
 
@@ -213,6 +243,9 @@ bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
 
 		pt = newPt;
 	}
+
+	totalAdvectionDistance = distanceCounter;
+
 	return advected;
 }
 
