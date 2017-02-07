@@ -132,25 +132,86 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 	return outVec;
 }
 
+glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm::vec3 circleCenter, double circleRadius)
+{
+	// http://www.codeproject.com/Articles/19799/Simple-Ray-Tracing-in-C-Part-II-Triangles-Intersec
+
+	float cx = circleCenter.x;
+	float cy = circleCenter.y;
+	float cz = circleCenter.z;
+
+	float px = linePoint0.x;
+	float py = linePoint0.y;
+	float pz = linePoint0.z;
+
+	float vx = linePoint1.x - px;
+	float vy = linePoint1.y - py;
+	float vz = linePoint1.z - pz;
+
+	float A = vx * vx + vy * vy + vz * vz;
+	float B = 2.f * (px * vx + py * vy + pz * vz - vx * cx - vy * cy - vz * cz);
+	float C = px * px - 2.f * px * cx + cx * cx + py * py - 2.f * py * cy + cy * cy +
+		pz * pz - 2.f * pz * cz + cz * cz - circleRadius * circleRadius;
+
+	// discriminant
+	float D = B * B - 4.f * A * C;
+
+	if (D < 0.f)
+		return glm::vec3(0.f);
+
+	float t1 = (-B - sqrtf(D)) / (2.f * A);
+
+	glm::vec3 solution1(linePoint0.x * (1.f - t1) + t1 * linePoint1.x,
+		linePoint0.y * (1.f - t1) + t1 * linePoint1.y,
+		linePoint0.z * (1.f - t1) + t1 * linePoint1.z);
+
+	if (D == 0.f)
+		return solution1;
+
+	float t2 = (-B + sqrtf(D)) / (2.f * A);
+	glm::vec3 solution2(linePoint0.x * (1.f - t2) + t2 * linePoint1.x,
+		linePoint0.y * (1.f - t2) + t2 * linePoint1.y,
+		linePoint0.z * (1.f - t2) + t2 * linePoint1.z);
+
+	// prefer a solution that's on the line segment itself
+
+	if (abs(t1 - 0.5f) < abs(t2 - 0.5f))
+		return solution1;
+
+	return solution2;
+}
+
 bool VectorFieldGenerator::checkCenterAdvection(float sphereRadius)
 {
-	float stepSize = 0.01f;
-	float totalTime = 100.f;
-	bool advected = false;
-	glm::vec3 pt(0.f);
+	float stepSize = 1.f/90.f; // should run @ 90fps
+	float totalTime = 10.f; // particle advection simulation time in seconds
+	bool advected = false; // flag for particle advecting out of sphere
+	glm::vec3 pt(0.f); // start at the center of the field
 	for (float i = 0.f; i < totalTime; i += stepSize)
 	{
+		// advect point by one timestep to get new point
 		glm::vec3 newPt = pt + stepSize * interpolate(pt);
 		
 		DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
-
-		pt = newPt;
-
-		if (glm::length(pt) >= sphereRadius)
+		
+		if (glm::length(newPt) >= sphereRadius && !advected)
 		{
 			advected = true;
+
+			glm::vec3 exitPt = lineSphereIntersection(pt, newPt, glm::vec3(0.f), sphereRadius);
+
+			glm::vec3 x = glm::cross(glm::normalize(exitPt), glm::vec3(0.f, 1.f, 0.f));
+			glm::vec3 y = glm::cross(x, glm::normalize(exitPt));
+
+			float crossSize = 0.05f;
+
+			DebugDrawer::getInstance().drawLine(exitPt - crossSize * x, exitPt + crossSize * x, glm::vec3(1.f, 0.f, 0.f));
+			DebugDrawer::getInstance().drawLine(exitPt - crossSize * y, exitPt + crossSize * y, glm::vec3(1.f, 0.f, 0.f));
+
 			//break;
 		}
+
+		pt = newPt;
 	}
 	return advected;
 }
