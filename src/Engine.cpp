@@ -36,6 +36,9 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 		if (key == GLFW_KEY_R)
 			m_pVFG->init(6u, GRID_RES);
 
+		if (key == GLFW_KEY_KP_ENTER)
+			m_pVFG->save();
+
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
 		if (key == GLFW_KEY_LEFT)

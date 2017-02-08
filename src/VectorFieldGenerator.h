@@ -19,6 +19,8 @@ public:
 	
 	void draw(const Shader &s);
 
+	void save();
+
 private:
 	struct ControlPoint {
 		glm::vec3 pos;
@@ -40,7 +42,7 @@ private:
 
 private:
 	void createControlPoints(unsigned int nControlPoints);
-	void makeGrid(int resolution, float gaussianShape = 1.f);
+	void makeGrid(unsigned int resolution, float gaussianShape = 1.f);
 	glm::vec3 interpolate(glm::vec3 pt);
 	void advectParticles(std::vector<glm::vec3> seedPoints, float dt, float totalTime);
 	bool checkSphereAdvection(float dt, float totalTime, glm::vec3 sphereCenter, float sphereRadius, float &timeToAdvect, float &distanceToAdvect, float &totalDistance);

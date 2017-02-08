@@ -163,7 +163,7 @@ public:
 		
 		// Draw mesh
 		glBindVertexArray(this->m_glVAO);
-		glDrawArrays(GL_LINES, 0, m_vVertices.size());
+		glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_vVertices.size()));
 		glBindVertexArray(0);
 
 		glUseProgram(0);

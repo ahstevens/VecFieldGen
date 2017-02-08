@@ -106,7 +106,7 @@ void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
 }
 
-void VectorFieldGenerator::makeGrid(int resolution, float gaussianShape)
+void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape)
 {
 	m_v3DGridPairs.clear();
 
@@ -177,7 +177,7 @@ void VectorFieldGenerator::advectParticles(std::vector<glm::vec3> seedPoints, fl
 }
 
 // Taken from http://stackoverflow.com/questions/5883169/intersection-between-a-line-and-a-sphere
-glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm::vec3 circleCenter, double circleRadius)
+glm::vec3 lineSphereIntersection(glm::vec3 linePoint0, glm::vec3 linePoint1, glm::vec3 circleCenter, float circleRadius)
 {
 	// http://www.codeproject.com/Articles/19799/Simple-Ray-Tracing-in-C-Part-II-Triangles-Intersec
 
@@ -327,4 +327,81 @@ void VectorFieldGenerator::draw(const Shader & s)
 	//		}
 	//	}
 	//}
+}
+
+void VectorFieldGenerator::save()
+{
+	FILE *exportFile;
+
+	char filename[128];
+	int filenum = 0;
+	sprintf_s(filename, "study%d.fg", filenum++); //didn't test this modification, VTT uses timecodes
+
+	printf("opening: %s\n", filename);
+	fopen_s(&exportFile, filename, "wb");
+	while (exportFile == NULL)
+	{
+		printf("Unable to open flowgrid export file!");
+
+		sprintf_s(filename, "study%d.fg", filenum++); //didn't test this modification, VTT uses timecodes
+
+		printf("opening: %s\n", filename);
+		fopen_s(&exportFile, filename, "wb");
+		return;
+	}
+
+	//xyz min max values are the coordinates, so for our purposes they can be whatever, like -1 to 1 or 0 to 32 etc, the viewer should stretch everything to the same size anyways, using 1 to 32 might be easiest see with depthValues comment below
+	//x y and z cells would be 32
+
+	float xMin, xMax, yMin, yMax, zMin, zMax;
+	xMin = yMin = zMin = 1.f;
+	xMax = yMax = zMax = 32.f;
+	int xCells, yCells, zCells;
+	xCells = yCells = zCells = 32;
+	int numTimesteps = 1;
+
+	fwrite(&xMin, sizeof(float), 1, exportFile);
+	fwrite(&xMax, sizeof(float), 1, exportFile);
+	fwrite(&xCells, sizeof(int), 1, exportFile);
+	fwrite(&yMin, sizeof(float), 1, exportFile);
+	fwrite(&yMax, sizeof(float), 1, exportFile);
+	fwrite(&yCells, sizeof(int), 1, exportFile);
+	fwrite(&zMin, sizeof(float), 1, exportFile);
+	fwrite(&zMax, sizeof(float), 1, exportFile);
+	fwrite(&zCells, sizeof(int), 1, exportFile);
+	fwrite(&numTimesteps, sizeof(int), 1, exportFile);
+
+	//write out evenly spaced depth values, e.g. 1-32 
+	for (int i = 0; i < zCells; i++)
+	{
+		float depthVal = static_cast<float>(i + 1);
+		fwrite(&depthVal, sizeof(float), 1, exportFile);
+	}
+
+	//shouldnt matter since just one timestep, just write out 0
+	for (int i = 0; i < numTimesteps; i++)
+	{
+		float n = 0.f;
+		fwrite(&n, sizeof(float), 1, exportFile);
+	}
+
+	for (int z = 0; z < m_v3DGridPairs.size(); z++)
+	{
+		for (int y = 0; y < m_v3DGridPairs[z].size(); y++)
+		{
+			for (int x = 0; x < m_v3DGridPairs[z][y].size(); x++)
+			{
+				for (int t = 0; t<numTimesteps; t++)
+				{
+					int one = 1;
+					fwrite(&one, sizeof(int), 1, exportFile); //just write out 1 (true) for all
+					fwrite(&m_v3DGridPairs[z][y][x].second, sizeof(float), 3, exportFile);
+				}//end for t
+			}//end for z
+		}//end for y
+	}//end for x
+
+	fclose(exportFile);
+
+	printf("Exported FlowGrid to %s\n", filename);
 }
