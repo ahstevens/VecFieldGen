@@ -372,9 +372,9 @@ void VectorFieldGenerator::save()
 	fwrite(&numTimesteps, sizeof(int), 1, exportFile);
 
 	//write out evenly spaced depth values, e.g. 1-32 
-	for (int i = 0; i < zCells; i++)
+	for (int i = 1; i <= zCells; i++)
 	{
-		float depthVal = static_cast<float>(i + 1);
+		float depthVal = static_cast<float>(i);
 		fwrite(&depthVal, sizeof(float), 1, exportFile);
 	}
 
