@@ -25,7 +25,7 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 	m_v3DGridPairs.clear();
 
 	DebugDrawer::getInstance().flushLines();
-
+	DebugDrawer::getInstance().drawTransform(0.1f);
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
 
 	m_fGaussianShape = 1.2f;
@@ -54,12 +54,12 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds without advecting through sphere (r = " << r << ")" << std::endl << std::endl;
 	}
 	
-	//std::vector<glm::vec3> seedPoints;
+	std::vector<glm::vec3> seedPoints;
 
-	//for (int i = 0; i < 100; ++i)
-	//	seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
+	for (int i = 0; i < 100; ++i)
+		seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
 
-	//advectParticles(seedPoints, 1.f / 90.f, 10.f);
+	advectParticles(seedPoints, 1.f / 90.f, 10.f);
 }
 
 void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
@@ -391,12 +391,17 @@ void VectorFieldGenerator::save()
 		{
 			for (int x = 0; x < m_v3DGridPairs[z][y].size(); x++)
 			{
-				for (int t = 0; t<numTimesteps; t++)
-				{
-					int one = 1;
-					fwrite(&one, sizeof(int), 1, exportFile); //just write out 1 (true) for all
-					fwrite(&m_v3DGridPairs[z][y][x].second, sizeof(float), 3, exportFile);
-				}//end for t
+				int one = 1;
+				float u, v, w;
+
+				u = m_v3DGridPairs[z][y][x].second.x;  // EAST
+				v = -m_v3DGridPairs[z][y][x].second.z;  // NORTH
+				w = m_v3DGridPairs[z][y][x].second.y;  // UP (SKY)
+
+				fwrite(&one, sizeof(int), 1, exportFile); //just write out 1 (true) for all
+				fwrite(&u, sizeof(float), 1, exportFile); // U
+				fwrite(&v, sizeof(float), 1, exportFile); // V
+				fwrite(&w, sizeof(float), 1, exportFile); // W
 			}//end for z
 		}//end for y
 	}//end for x
