@@ -28,11 +28,13 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 	DebugDrawer::getInstance().drawTransform(0.1f);
 	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
 
+	m_uiGridResolution = gridResolution;
+
 	m_fGaussianShape = 1.2f;
 
 	createControlPoints(nControlPoints);
 
-	makeGrid(gridResolution, m_fGaussianShape);
+	makeGrid(m_uiGridResolution, m_fGaussianShape);
 
 	float dt = 1.f / 90.f;
 	float time = 10.f;
@@ -110,16 +112,16 @@ void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape
 {
 	m_v3DGridPairs.clear();
 
-	float cellSize = (2.f / (resolution - 1));
+	float cellSize = (2.f / (m_uiGridResolution - 1));
 
 	// create a regular 3D grid at the given resolution and interpolate the field at its nodes
-	for (unsigned int i = 0; i < resolution; ++i)
+	for (unsigned int i = 0; i < m_uiGridResolution; ++i)
 	{
 		std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>> frame;
-		for (unsigned int j = 0; j < resolution; ++j)
+		for (unsigned int j = 0; j < m_uiGridResolution; ++j)
 		{
 			std::vector<std::pair<glm::vec3, glm::vec3>> row;
-			for (unsigned int k = 0; k < resolution; ++k)
+			for (unsigned int k = 0; k < m_uiGridResolution; ++k)
 			{
 				// calculate grid point position
 				glm::vec3 point;
@@ -355,9 +357,9 @@ void VectorFieldGenerator::save()
 
 	float xMin, xMax, yMin, yMax, zMin, zMax;
 	xMin = yMin = zMin = 1.f;
-	xMax = yMax = zMax = 32.f;
+	xMax = yMax = zMax = m_uiGridResolution;
 	int xCells, yCells, zCells;
-	xCells = yCells = zCells = 32;
+	xCells = yCells = zCells = m_uiGridResolution;
 	int numTimesteps = 1;
 
 	fwrite(&xMin, sizeof(float), 1, exportFile);
@@ -385,19 +387,21 @@ void VectorFieldGenerator::save()
 		fwrite(&n, sizeof(float), 1, exportFile);
 	}
 
-	for (int z = 0; z < m_v3DGridPairs.size(); z++)
+	for (int x = 0; x < m_uiGridResolution; x++)
 	{
-		for (int y = 0; y < m_v3DGridPairs[z].size(); y++)
+		for (int y = 0; y < m_uiGridResolution; y++)
 		{
-			for (int x = 0; x < m_v3DGridPairs[z][y].size(); x++)
+			for (int z = 0; z < m_uiGridResolution; z++)
 			{
-				int one = 1;
+				glm::vec3 dir = m_v3DGridPairs[z][y][x].second;
+
+				// Change from +y up to +z up
 				float u, v, w;
+				u = dir.x;  // EAST
+				v = -dir.z; // NORTH
+				w = dir.y;  // UP (SKY)
 
-				u = m_v3DGridPairs[z][y][x].second.x;  // EAST
-				v = -m_v3DGridPairs[z][y][x].second.z;  // NORTH
-				w = m_v3DGridPairs[z][y][x].second.y;  // UP (SKY)
-
+				int one = 1;
 				fwrite(&one, sizeof(int), 1, exportFile); //just write out 1 (true) for all
 				fwrite(&u, sizeof(float), 1, exportFile); // U
 				fwrite(&v, sizeof(float), 1, exportFile); // V

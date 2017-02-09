@@ -33,6 +33,7 @@ private:
 
 	std::vector<ControlPoint> m_vControlPoints;
 
+	unsigned int m_uiGridResolution;
 	float m_fGaussianShape;
 	Eigen::MatrixXf m_matControlPointKernel;
 	Eigen::VectorXf m_vCPXVals, m_vCPYVals, m_vCPZVals;
