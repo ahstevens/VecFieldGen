@@ -112,7 +112,8 @@ void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape
 {
 	m_v3DGridPairs.clear();
 
-	float cellSize = (2.f / (m_uiGridResolution - 1));
+	// grid cell size when discretizing [-1, 1] cube
+	float cellSize = (2.f / static_cast<float>(m_uiGridResolution - 1));
 
 	// create a regular 3D grid at the given resolution and interpolate the field at its nodes
 	for (unsigned int i = 0; i < m_uiGridResolution; ++i)
@@ -368,8 +369,8 @@ void VectorFieldGenerator::save()
 	fwrite(&yMin, sizeof(float), 1, exportFile);
 	fwrite(&yMax, sizeof(float), 1, exportFile);
 	fwrite(&yCells, sizeof(int), 1, exportFile);
-	fwrite(&zMin, sizeof(float), 1, exportFile);
-	fwrite(&zMax, sizeof(float), 1, exportFile);
+	//fwrite(&zMin, sizeof(float), 1, exportFile);
+	//fwrite(&zMax, sizeof(float), 1, exportFile);
 	fwrite(&zCells, sizeof(int), 1, exportFile);
 	fwrite(&numTimesteps, sizeof(int), 1, exportFile);
 
