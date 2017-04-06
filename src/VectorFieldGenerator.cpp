@@ -58,7 +58,7 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 	
 	std::vector<glm::vec3> seedPoints;
 
-	for (int i = 0; i < 100; ++i)
+	for (int i = 0; i < 1000; ++i)
 		seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
 
 	advectParticles(seedPoints, 1.f / 90.f, 10.f);
@@ -165,12 +165,24 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 
 void VectorFieldGenerator::advectParticles(std::vector<glm::vec3> seedPoints, float dt, float totalTime)
 {
-	for (float i = 0.f; i < totalTime; i += dt)
+	for (auto &pt : seedPoints)
 	{
-		for (auto &pt : seedPoints)
+		for (float i = 0.f; i < totalTime; i += dt)
 		{
 			// advect point by one timestep to get new point
 			glm::vec3 newPt = pt + dt * interpolate(pt);
+
+			if (abs(newPt.x) > 1.f ||
+				abs(newPt.y) > 1.f ||
+				abs(newPt.z) > 1.f)
+			{
+				glm::vec3 clippedPt = newPt;
+				clippedPt.x = fmax(fmin(clippedPt.x, 1.f), -1.f);
+				clippedPt.y = fmax(fmin(clippedPt.y, 1.f), -1.f);
+				clippedPt.z = fmax(fmin(clippedPt.z, 1.f), -1.f);
+				DebugDrawer::getInstance().drawLine(pt, clippedPt, glm::normalize(clippedPt - pt));
+				break;
+			}
 
 			DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
 
