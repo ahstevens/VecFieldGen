@@ -17,9 +17,29 @@ Engine::Engine(int argc, char* argv[])
 	, m_pCamera(NULL)
 	, m_pShaderLighting(NULL)
 	, m_pShaderNormals(NULL)
+	, m_bGL(true)
+	, m_bSphereAdvectorsOnly(false)
+	, m_fDeltaT(1.f / 90.f)
+	, m_fAdvectionTime(10.f)
+//	, m_fSphereRadius(0.1f * sqrt(3)) // radius from Forsberg paper
+	, m_fSphereRadius(0.66667f)
+	, m_strSavePath("flowgrid.fg")
 {
-	for (int i = 0; i < argc; ++i)
-		m_vstrArgs.push_back(std::string(argv[i]));
+	for (int i = 1; i < argc; ++i)
+	{
+		std::string arg(argv[i]);
+
+		if (arg.compare("--nogl") == 0)
+			m_bGL = false;
+
+		if (arg.compare("--onlyadvects") == 0)
+			m_bSphereAdvectorsOnly = true;
+
+		if (arg.compare("-p") == 0)
+			m_strSavePath = std::string(argv[i + 1]);
+
+		m_vstrArgs.push_back(arg);
+	}
 }
 
 Engine::~Engine()
@@ -34,10 +54,10 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 		memcpy(&key, data, sizeof(key));
 
 		if (key == GLFW_KEY_R)
-			m_pVFG->init(6u, GRID_RES);
+			generateField();
 
-		if (key == GLFW_KEY_KP_ENTER)
-			m_pVFG->save();
+		if (key == GLFW_KEY_ENTER)
+			m_pVFG->save(m_strSavePath);
 
 		if (key == GLFW_KEY_RIGHT)
 			m_mat4WorldRotation = glm::rotate(m_mat4WorldRotation, glm::radians(1.f), glm::vec3(0.f, 1.f, 0.f));
@@ -60,30 +80,23 @@ void Engine::receiveEvent(Object * obj, const int event, void * data)
 }
 
 bool Engine::init()
-{
-	// Load GLFW 
-	glfwInit();
+{		
+	if (m_bGL)
+		initGL();
 
-	m_pWindow = init_gl_context("OpenGL Vector Field Generator");
-
-	if (!m_pWindow)
-		return false;
-
-	GLFWInputBroadcaster::getInstance().init(m_pWindow);
-	GLFWInputBroadcaster::getInstance().attach(this);  // Register self with input broadcaster
-
-	init_lighting();
-	init_camera();
-	init_shaders();
-		
-	m_pVFG = new VectorFieldGenerator();
-	m_pVFG->init(6u, GRID_RES);
+	generateField();
 
 	return true;
 }
 
 void Engine::mainLoop()
 {
+	if (!m_bGL)
+	{
+		m_pVFG->save(m_strSavePath);
+		return;
+	}
+
 	m_fLastTime = static_cast<float>(glfwGetTime());
 
 	// Main Rendering Loop
@@ -161,12 +174,72 @@ void Engine::render()
 
 		m_pLightingSystem->draw(*shader);
 
-		m_pVFG->draw(*shader);
+		// DRAW CONTROL POINTS
+		//{
+		//	m_pSphere->setScale(0.025f);
+
+		//	for (auto const &cp : m_vControlPoints)
+		//	{
+		//		m_pSphere->setPosition(cp.pos);
+		//		m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
+
+		//		m_pSphere->draw(s);
+
+		//		m_pSphere->setPosition(cp.pos + cp.dir);
+		//		m_pSphere->m_vec3DiffColor = (cp.dir + 1.f) / 2.f;
+
+		//		m_pSphere->draw(s);
+		//	}
+		//}
+
+		// DRAW VECTOR FIELD
+		//{
+		//	m_pSphere->setScale(0.005f);
+
+		//	for (auto const &frame : m_v3DGridPairs)
+		//	{
+		//		for (auto const &row : frame)
+		//		{
+		//			for (auto const &gridPair : row)
+		//			{
+		//				m_pSphere->setPosition(gridPair.first);
+		//				m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+
+		//				m_pSphere->draw(s);
+
+		//				//m_pSphere->setPosition(gridPair.first + 0.1f * gridPair.second);
+		//				//m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
+
+		//				//m_pSphere->draw(s);
+		//			}
+		//		}
+		//	}
+		//}
 	}
 
 	DebugDrawer::getInstance().render();
 
 	Shader::off();
+}
+
+bool Engine::initGL()
+{
+	// Load GLFW 
+	glfwInit();
+
+	m_pWindow = init_gl_context("OpenGL Vector Field Generator");
+
+	if (!m_pWindow)
+		return false;
+
+	GLFWInputBroadcaster::getInstance().init(m_pWindow);
+	GLFWInputBroadcaster::getInstance().attach(this);  // Register self with input broadcaster
+
+	init_lighting();
+	init_camera();
+	init_shaders();
+
+	return true;
 }
 
 GLFWwindow* Engine::init_gl_context(std::string winName)
@@ -284,4 +357,60 @@ void Engine::init_shaders()
 
 	m_pShaderNormals = new Shader(vBuffer.c_str(), fBuffer.c_str(), gBuffer.c_str());
 	//m_vpShaders.push_back(m_pShaderNormals);
+}
+
+void Engine::generateField()
+{
+	m_pVFG = new VectorFieldGenerator();
+	;
+	float t, d, td;
+	glm::vec3 exitPt;
+	bool advected;
+	
+	m_pVFG->init(6u, GRID_RES);
+	advected = m_pVFG->checkSphereAdvection(m_fDeltaT, m_fAdvectionTime, glm::vec3(0.f), m_fSphereRadius, t, d, td, exitPt);
+
+	while (m_bSphereAdvectorsOnly && !advected)
+	{
+		std::cout << "Regenerating vector field because particle failed to advect through sphere (r=" << m_fSphereRadius << ") in " << m_fAdvectionTime << "s" << std::endl;
+		m_pVFG->init(6u, GRID_RES);
+		advected = m_pVFG->checkSphereAdvection(m_fDeltaT, m_fAdvectionTime, glm::vec3(0.f), m_fSphereRadius, t, d, td, exitPt);
+	}
+
+	if (advected)
+	{
+		std::cout << "Particle successfully advected in " << t << " seconds (" << t / m_fDeltaT << " time steps)" << std::endl;
+		std::cout << '\t' << "Particle traveled " << d << " units until advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl;
+		std::cout << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds" << std::endl << std::endl;
+	}
+	else
+	{
+		std::cout << "Particled failed to advect!" << std::endl;
+		std::cout << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds without advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl << std::endl;
+	}
+
+	if (m_bGL)
+	{
+		DebugDrawer::getInstance().flushLines();
+
+		DebugDrawer::getInstance().setTransformDefault();
+
+		DebugDrawer::getInstance().drawTransform(0.1f);
+		DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
+
+		glm::vec3 x = glm::cross(glm::normalize(exitPt), glm::vec3(0.f, 1.f, 0.f));
+		glm::vec3 y = glm::cross(x, glm::normalize(exitPt));
+
+		float crossSize = 0.05f;
+
+		DebugDrawer::getInstance().drawLine(glm::vec3(0.f), exitPt, glm::vec3(1.f, 0.f, 0.f));
+		DebugDrawer::getInstance().drawLine(exitPt - crossSize * x, exitPt + crossSize * x, glm::vec3(1.f, 0.f, 0.f));
+		DebugDrawer::getInstance().drawLine(exitPt - crossSize * y, exitPt + crossSize * y, glm::vec3(1.f, 0.f, 0.f));
+
+		std::vector<std::vector<glm::vec3>> particles = m_pVFG->getAdvectedParticles(1000, 1.f / 90.f, 10.f);
+
+		for (auto &trail : particles)
+			for (int i = 1; i < trail.size(); ++i)
+				DebugDrawer::getInstance().drawLine(trail[i - 1], trail[i], glm::normalize(trail[i] - trail[i - 1]));
+	}
 }

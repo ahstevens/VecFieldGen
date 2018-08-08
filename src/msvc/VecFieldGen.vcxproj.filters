@@ -36,13 +36,13 @@
     <ClInclude Include="..\LightingSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Icosphere.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\VectorFieldGenerator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\DebugDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Icosphere.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -59,10 +59,10 @@
     <ClCompile Include="..\LightingSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Icosphere.cpp">
+    <ClCompile Include="..\VectorFieldGenerator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\VectorFieldGenerator.cpp">
+    <ClCompile Include="..\Icosphere.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

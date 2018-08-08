@@ -1,32 +1,26 @@
 #include "VectorFieldGenerator.h"
 
 #include <iostream>
+#include <sstream>
+#include <fstream>
+#include <filesystem>
 
 #include "DebugDrawer.h"
 
 VectorFieldGenerator::VectorFieldGenerator()
-	: m_pSphere(NULL)
 {
 	m_RNG.seed(std::random_device()());
 
 	m_Distribuion = std::uniform_real_distribution<float>(-1.f, 1.f);
-
-	m_pSphere = new Icosphere(4);
 }
 
 VectorFieldGenerator::~VectorFieldGenerator()
 {
-	if (m_pSphere)
-		delete m_pSphere;
 }
 
 void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridResolution)
 {	
 	m_v3DGridPairs.clear();
-
-	DebugDrawer::getInstance().flushLines();
-	DebugDrawer::getInstance().drawTransform(0.1f);
-	DebugDrawer::getInstance().drawBox(glm::vec3(-1.f), glm::vec3(1.f), glm::vec3(1.f));
 
 	m_uiGridResolution = gridResolution;
 
@@ -34,34 +28,7 @@ void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridRe
 
 	createControlPoints(nControlPoints);
 
-	makeGrid(m_uiGridResolution, m_fGaussianShape);
-
-	float dt = 1.f / 90.f;
-	float time = 10.f;
-	//float r = 0.1f * sqrt(3); // from Forsberg paper
-	float r = 0.6667f;
-	float t, d, td;
-
-	bool advected = checkSphereAdvection(dt, time, glm::vec3(0.f), r, t, d, td);
-
-	if (advected)
-	{
-		std::cout << "Particle successfully advected in " << t << " seconds (" << t / dt << " time steps)" << std::endl;
-		std::cout << '\t' << "Particle traveled " << d << " units until advecting through sphere (r = " << r << ")" << std::endl;
-		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds" << std::endl << std::endl;
-	}
-	else
-	{
-		std::cout << "Particled failed to advect!" << std::endl;
-		std::cout << '\t' << "Particle traveled " << td << " total units in " << time << " seconds without advecting through sphere (r = " << r << ")" << std::endl << std::endl;
-	}
-	
-	std::vector<glm::vec3> seedPoints;
-
-	for (int i = 0; i < 1000; ++i)
-		seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
-
-	advectParticles(seedPoints, 1.f / 90.f, 10.f);
+	makeGrid(m_uiGridResolution, m_fGaussianShape);	
 }
 
 void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
@@ -82,9 +49,6 @@ void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
 		cp.dir = glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG));
 
 		m_vControlPoints.push_back(cp);
-
-		// Draw debug line for control point
-		//DebugDrawer::getInstance().drawLine(cp.pos, cp.pos + cp.dir, (cp.dir + 1.f) / 2.f);
 		
 		// store each vector component of the control point value
 		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
@@ -133,8 +97,6 @@ void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape
 				glm::vec3 flowHere = interpolate(point);
 
 				row.push_back(std::pair<glm::vec3, glm::vec3>(point, flowHere));
-
-				//DebugDrawer::getInstance().drawLine(point, point + flowHere, (flowHere + 1.f) / 2.f);
 			}
 			frame.push_back(row);
 		}
@@ -163,10 +125,19 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 	return outVec;
 }
 
-void VectorFieldGenerator::advectParticles(std::vector<glm::vec3> seedPoints, float dt, float totalTime)
+std::vector<std::vector<glm::vec3>> VectorFieldGenerator::getAdvectedParticles(int numParticles, float dt, float totalTime)
 {
+	std::vector<std::vector<glm::vec3>> ret;
+	std::vector<glm::vec3> seedPoints;
+
+	for (int i = 0; i < numParticles; ++i)
+		seedPoints.push_back(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
+	
 	for (auto &pt : seedPoints)
 	{
+		std::vector<glm::vec3> particlePath;
+		particlePath.push_back(pt);
+
 		for (float i = 0.f; i < totalTime; i += dt)
 		{
 			// advect point by one timestep to get new point
@@ -180,15 +151,20 @@ void VectorFieldGenerator::advectParticles(std::vector<glm::vec3> seedPoints, fl
 				clippedPt.x = fmax(fmin(clippedPt.x, 1.f), -1.f);
 				clippedPt.y = fmax(fmin(clippedPt.y, 1.f), -1.f);
 				clippedPt.z = fmax(fmin(clippedPt.z, 1.f), -1.f);
-				DebugDrawer::getInstance().drawLine(pt, clippedPt, glm::normalize(clippedPt - pt));
+
+				particlePath.push_back(clippedPt);
 				break;
 			}
 
-			DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
+			particlePath.push_back(newPt);
 
 			pt = newPt;
 		}
+
+		ret.push_back(particlePath);
 	}
+
+	return ret;
 }
 
 // Taken from http://stackoverflow.com/questions/5883169/intersection-between-a-line-and-a-sphere
@@ -248,19 +224,18 @@ bool VectorFieldGenerator::checkSphereAdvection(
 	float sphereRadius,
 	float &timeToAdvectSphere,
 	float &distanceToAdvectSphere,
-	float &totalAdvectionDistance
+	float &totalAdvectionDistance,
+	glm::vec3 &exitPoint
 )
 {
 	bool advected = false;
-	timeToAdvectSphere = 0.f;
+	timeToAdvectSphere = -1.f;
 	float distanceCounter = distanceToAdvectSphere = 0.f;
-	glm::vec3 pt = sphereCenter; // start at the center of the field
+	glm::vec3 pt = exitPoint = sphereCenter; // start at the center of the field
 	for (float i = 0.f; i < totalTime; i += dt)
 	{
 		// advect point by one timestep to get new point
 		glm::vec3 newPt = pt + dt * interpolate(pt);
-		
-		DebugDrawer::getInstance().drawLine(pt, newPt, glm::normalize(newPt - pt));
 
 		distanceCounter += glm::length(newPt - pt);
 
@@ -270,18 +245,7 @@ bool VectorFieldGenerator::checkSphereAdvection(
 			timeToAdvectSphere = i;
 			distanceToAdvectSphere = distanceCounter;
 
-			glm::vec3 exitPt = lineSphereIntersection(pt, newPt, glm::vec3(0.f), sphereRadius);
-
-			glm::vec3 x = glm::cross(glm::normalize(exitPt), glm::vec3(0.f, 1.f, 0.f));
-			glm::vec3 y = glm::cross(x, glm::normalize(exitPt));
-
-			float crossSize = 0.05f;
-
-			DebugDrawer::getInstance().drawLine(sphereCenter, exitPt, glm::vec3(1.f, 0.f, 0.f));
-			DebugDrawer::getInstance().drawLine(exitPt - crossSize * x, exitPt + crossSize * x, glm::vec3(1.f, 0.f, 0.f));
-			DebugDrawer::getInstance().drawLine(exitPt - crossSize * y, exitPt + crossSize * y, glm::vec3(1.f, 0.f, 0.f));
-
-			//break;
+			exitPoint = lineSphereIntersection(pt, newPt, glm::vec3(0.f), sphereRadius);
 		}
 
 		pt = newPt;
@@ -297,72 +261,17 @@ float VectorFieldGenerator::gaussianBasis(float radius, float eta)
 	return exp(-(eta * radius * radius));
 }
 
-void VectorFieldGenerator::draw(const Shader & s)
-{
-	DebugDrawer::getInstance().setTransformDefault();
-
-	// DRAW CONTROL POINTS
-	//{
-	//	m_pSphere->setScale(0.025f);
-
-	//	for (auto const &cp : m_vControlPoints)
-	//	{
-	//		m_pSphere->setPosition(cp.pos);
-	//		m_pSphere->m_vec3DiffColor = glm::vec3(1.f);
-
-	//		m_pSphere->draw(s);
-
-	//		m_pSphere->setPosition(cp.pos + cp.dir);
-	//		m_pSphere->m_vec3DiffColor = (cp.dir + 1.f) / 2.f;
-
-	//		m_pSphere->draw(s);
-	//	}
-	//}
-
-	// DRAW VECTOR FIELD
-	//{
-	//	m_pSphere->setScale(0.005f);
-
-	//	for (auto const &frame : m_v3DGridPairs)
-	//	{
-	//		for (auto const &row : frame)
-	//		{
-	//			for (auto const &gridPair : row)
-	//			{
-	//				m_pSphere->setPosition(gridPair.first);
-	//				m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
-
-	//				m_pSphere->draw(s);
-
-	//				//m_pSphere->setPosition(gridPair.first + 0.1f * gridPair.second);
-	//				//m_pSphere->m_vec3DiffColor = (gridPair.second + 1.f) / 2.f;
-
-	//				//m_pSphere->draw(s);
-	//			}
-	//		}
-	//	}
-	//}
-}
-
-void VectorFieldGenerator::save()
+bool VectorFieldGenerator::save(std::string path)
 {
 	FILE *exportFile;
 
-	char filename[128];
-	int filenum = 0;
-	sprintf_s(filename, "study%d.fg", filenum++); //didn't test this modification, VTT uses timecodes
+	printf("opening: %s\n", path.c_str());
+	fopen_s(&exportFile, path.c_str(), "wb");
 
-	printf("opening: %s\n", filename);
-	fopen_s(&exportFile, filename, "wb");
-	while (exportFile == NULL)
+	if (exportFile == NULL)
 	{
 		printf("Unable to open flowgrid export file!");
-
-		sprintf_s(filename, "study%d.fg", filenum++); //didn't test this modification, VTT uses timecodes
-
-		printf("opening: %s\n", filename);
-		fopen_s(&exportFile, filename, "wb");
-		return;
+		return false;
 	}
 
 	//xyz min max values are the coordinates, so for our purposes they can be whatever, like -1 to 1 or 0 to 32 etc, the viewer should stretch everything to the same size anyways, using 1 to 32 might be easiest see with depthValues comment below
@@ -381,8 +290,8 @@ void VectorFieldGenerator::save()
 	fwrite(&yMin, sizeof(float), 1, exportFile);
 	fwrite(&yMax, sizeof(float), 1, exportFile);
 	fwrite(&yCells, sizeof(int), 1, exportFile);
-	//fwrite(&zMin, sizeof(float), 1, exportFile);
-	//fwrite(&zMax, sizeof(float), 1, exportFile);
+	fwrite(&zMin, sizeof(float), 1, exportFile);
+	fwrite(&zMax, sizeof(float), 1, exportFile);
 	fwrite(&zCells, sizeof(int), 1, exportFile);
 	fwrite(&numTimesteps, sizeof(int), 1, exportFile);
 
@@ -425,5 +334,33 @@ void VectorFieldGenerator::save()
 
 	fclose(exportFile);
 
-	printf("Exported FlowGrid to %s\n", filename);
+	printf("Exported FlowGrid to %s\n", path.c_str());
+
+
+	using namespace std::experimental::filesystem::v1;
+	std::string metaFileName = path + ".cp";
+	std::ofstream metaFile;
+
+	printf("opening: %s\n", metaFileName.c_str());
+
+	metaFile.open(metaFileName);
+
+	if (!metaFile.is_open())
+	{
+		printf("Unable to open flowgrid metadata export file!");
+		return false;
+	}
+
+	for (int i = 0; i < m_vControlPoints.size(); ++i)
+	{
+		metaFile << "CP" << i << "_POINT," << m_vControlPoints[i].pos.x << "," << m_vControlPoints[i].pos.y << "," << m_vControlPoints[i].pos.z << std::endl;
+		metaFile << "CP" << i << "_DIRECTION," << m_vControlPoints[i].dir.x << "," << m_vControlPoints[i].dir.y << "," << m_vControlPoints[i].dir.z << std::endl;
+		metaFile << "CP" << i << "_LAMBDA," << m_vLambdaX[i] << "," << m_vLambdaY[i] << "," << m_vLambdaZ[i] << std::endl;
+	}
+
+	metaFile.close();
+
+	printf("Exported FlowGrid metadata file to %s\n", metaFileName.c_str());
+
+	return true;
 }

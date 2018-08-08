@@ -40,6 +40,14 @@ public:
 	
 private:
 	glm::mat4 m_mat4WorldRotation;
+	bool m_bGL;
+	bool m_bSphereAdvectorsOnly;
+
+	float m_fDeltaT;
+	float m_fAdvectionTime;
+	float m_fSphereRadius;
+
+	std::string m_strSavePath;
 
 public:
 	Engine(int argc, char* argv[]);
@@ -57,6 +65,8 @@ public:
 	void receiveEvent(Object * obj, const int event, void * data);
 
 private:
+	bool initGL();
+
 	GLFWwindow* init_gl_context(std::string winName);
 	
 	void init_lighting();
@@ -64,4 +74,6 @@ private:
 	void init_camera();
 
 	void init_shaders();
+
+	void generateField();
 };
