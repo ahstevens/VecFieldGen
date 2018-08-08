@@ -13,12 +13,19 @@ public:
 	VectorFieldGenerator();
 	~VectorFieldGenerator();
 
-	void init(unsigned int nControlPoints, unsigned int gridResolution);
+	void setGridResolution(unsigned int res);
+	void setGaussianShape(float guassian);
+
+	void createRandomControlPoints(unsigned int nControlPoints);
+	void setControlPoint(glm::vec3 pos, glm::vec3 dir);
+	void clearControlPoints();
+
+	void generate();
 
 	bool checkSphereAdvection(float dt, float totalTime, glm::vec3 sphereCenter, float sphereRadius, float &timeToAdvect, float &distanceToAdvect, float &totalDistance, glm::vec3 &exitPoint);
 	std::vector<std::vector<glm::vec3>> getAdvectedParticles(int numParticles, float dt, float totalTime);
 
-	bool save(std::string path);
+	bool save(std::string path, bool verbose = true);
 
 private:
 	struct ControlPoint {
@@ -40,8 +47,7 @@ private:
 	std::vector<std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>>> m_v3DGridPairs;
 
 private:
-	void createControlPoints(unsigned int nControlPoints);
-	void makeGrid(unsigned int resolution, float gaussianShape = 1.f);
+	void solveLUdecomp();
 	glm::vec3 interpolate(glm::vec3 pt);
 	float gaussianBasis(float r, float eta);
 };

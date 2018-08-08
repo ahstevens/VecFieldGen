@@ -5,9 +5,9 @@
 #include <fstream>
 #include <filesystem>
 
-#include "DebugDrawer.h"
-
 VectorFieldGenerator::VectorFieldGenerator()
+	: m_uiGridResolution(10u)
+	, m_fGaussianShape(1.f)
 {
 	m_RNG.seed(std::random_device()());
 
@@ -18,62 +18,39 @@ VectorFieldGenerator::~VectorFieldGenerator()
 {
 }
 
-void VectorFieldGenerator::init(unsigned int nControlPoints, unsigned int gridResolution)
-{	
-	m_v3DGridPairs.clear();
-
-	m_uiGridResolution = gridResolution;
-
-	m_fGaussianShape = 1.2f;
-
-	createControlPoints(nControlPoints);
-
-	makeGrid(m_uiGridResolution, m_fGaussianShape);	
+void VectorFieldGenerator::setGridResolution(unsigned int res)
+{
+	m_uiGridResolution = res;
 }
 
-void VectorFieldGenerator::createControlPoints(unsigned int nControlPoints)
+void VectorFieldGenerator::setGaussianShape(float gaussian)
 {
-	if (m_vControlPoints.size() > 0u)	
-		m_vControlPoints.clear();
+	m_fGaussianShape = gaussian;
+}
 
-	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
-	m_vCPXVals = Eigen::VectorXf(nControlPoints);
-	m_vCPYVals = Eigen::VectorXf(nControlPoints);
-	m_vCPZVals = Eigen::VectorXf(nControlPoints);
+void VectorFieldGenerator::createRandomControlPoints(unsigned int nControlPoints)
+{
+	clearControlPoints();
 
 	for (unsigned int i = 0u; i < nControlPoints; ++i)
-	{
-		// Create control point
-		ControlPoint cp;
-		cp.pos = glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG));
-		cp.dir = glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG));
-
-		m_vControlPoints.push_back(cp);
-		
-		// store each vector component of the control point value
-		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
-		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
-		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
-
-		// fill in the distance matrix kernel entries for this control point
-		m_matControlPointKernel(i, i) = 1.f;
-		for (int j = static_cast<int>(i) - 1; j >= 0; --j)
-		{
-			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
-			float gaussian = gaussianBasis(r, m_fGaussianShape);
-			m_matControlPointKernel(i, j) = m_matControlPointKernel(j, i) = gaussian;
-		}
-	}
-
-	// solve for lambda coefficients in each (linearly independent) dimension using LU decomposition of distance matrix
-	//     -the lambda coefficients are the interpolation weights for each control(/interpolation data) point
-	m_vLambdaX = m_matControlPointKernel.fullPivLu().solve(m_vCPXVals);
-	m_vLambdaY = m_matControlPointKernel.fullPivLu().solve(m_vCPYVals);
-	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
+		setControlPoint(glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)) , glm::vec3(m_Distribuion(m_RNG), m_Distribuion(m_RNG), m_Distribuion(m_RNG)));
 }
 
-void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape)
+void VectorFieldGenerator::setControlPoint(glm::vec3 pos, glm::vec3 dir)
 {
+	m_vControlPoints.push_back(ControlPoint({ pos, dir }));
+}
+
+void VectorFieldGenerator::clearControlPoints()
+{
+	if (m_vControlPoints.size() > 0u)
+		m_vControlPoints.clear();
+}
+
+void VectorFieldGenerator::generate()
+{
+	solveLUdecomp();
+
 	m_v3DGridPairs.clear();
 
 	// grid cell size when discretizing [-1, 1] cube
@@ -102,6 +79,39 @@ void VectorFieldGenerator::makeGrid(unsigned int resolution, float gaussianShape
 		}
 		m_v3DGridPairs.push_back(frame);
 	}
+}
+
+void VectorFieldGenerator::solveLUdecomp()
+{
+	int nControlPoints = m_vControlPoints.size();
+
+	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
+	m_vCPXVals = Eigen::VectorXf(nControlPoints);
+	m_vCPYVals = Eigen::VectorXf(nControlPoints);
+	m_vCPZVals = Eigen::VectorXf(nControlPoints);
+
+	for (unsigned int i = 0u; i < nControlPoints; ++i)
+	{
+		// store each vector component of the control point value
+		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
+		m_vCPYVals(i) = m_vControlPoints[i].dir.y;
+		m_vCPZVals(i) = m_vControlPoints[i].dir.z;
+
+		// fill in the distance matrix kernel entries for this control point
+		m_matControlPointKernel(i, i) = 1.f;
+		for (int j = static_cast<int>(i) - 1; j >= 0; --j)
+		{
+			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
+			float gaussian = gaussianBasis(r, m_fGaussianShape);
+			m_matControlPointKernel(i, j) = m_matControlPointKernel(j, i) = gaussian;
+		}
+	}
+
+	// solve for lambda coefficients in each (linearly independent) dimension using LU decomposition of distance matrix
+	//     -the lambda coefficients are the interpolation weights for each control(/interpolation data) point
+	m_vLambdaX = m_matControlPointKernel.fullPivLu().solve(m_vCPXVals);
+	m_vLambdaY = m_matControlPointKernel.fullPivLu().solve(m_vCPYVals);
+	m_vLambdaZ = m_matControlPointKernel.fullPivLu().solve(m_vCPZVals);
 }
 
 glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
@@ -261,16 +271,16 @@ float VectorFieldGenerator::gaussianBasis(float radius, float eta)
 	return exp(-(eta * radius * radius));
 }
 
-bool VectorFieldGenerator::save(std::string path)
+bool VectorFieldGenerator::save(std::string path, bool verbose)
 {
 	FILE *exportFile;
 
-	printf("opening: %s\n", path.c_str());
+	if (verbose) printf("opening: %s\n", path.c_str());
 	fopen_s(&exportFile, path.c_str(), "wb");
 
 	if (exportFile == NULL)
 	{
-		printf("Unable to open flowgrid export file!");
+		if (verbose) printf("Unable to open flowgrid export file!");
 		return false;
 	}
 
@@ -334,20 +344,20 @@ bool VectorFieldGenerator::save(std::string path)
 
 	fclose(exportFile);
 
-	printf("Exported FlowGrid to %s\n", path.c_str());
+	if (verbose) printf("Exported FlowGrid to %s\n", path.c_str());
 
 
 	using namespace std::experimental::filesystem::v1;
 	std::string metaFileName = path + ".cp";
 	std::ofstream metaFile;
 
-	printf("opening: %s\n", metaFileName.c_str());
+	if (verbose) printf("opening: %s\n", metaFileName.c_str());
 
 	metaFile.open(metaFileName);
 
 	if (!metaFile.is_open())
 	{
-		printf("Unable to open flowgrid metadata export file!");
+		if (verbose) printf("Unable to open flowgrid metadata export file!");
 		return false;
 	}
 
@@ -360,7 +370,7 @@ bool VectorFieldGenerator::save(std::string path)
 
 	metaFile.close();
 
-	printf("Exported FlowGrid metadata file to %s\n", metaFileName.c_str());
+	if (verbose) printf("Exported FlowGrid metadata file to %s\n", metaFileName.c_str());
 
 	return true;
 }

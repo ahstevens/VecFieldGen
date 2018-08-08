@@ -127,22 +127,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\BroadcastSystem.h" />
-    <ClInclude Include="..\Camera.h" />
-    <ClInclude Include="..\DebugDrawer.h" />
-    <ClInclude Include="..\Engine.h" />
-    <ClInclude Include="..\GLFWInputBroadcaster.h" />
-    <ClInclude Include="..\Icosphere.h" />
-    <ClInclude Include="..\LightingSystem.h" />
-    <ClInclude Include="..\Object.h" />
-    <ClInclude Include="..\Shader.h" />
     <ClInclude Include="..\VectorFieldGenerator.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Engine.cpp" />
-    <ClCompile Include="..\GLFWInputBroadcaster.cpp" />
-    <ClCompile Include="..\Icosphere.cpp" />
-    <ClCompile Include="..\LightingSystem.cpp" />
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\VectorFieldGenerator.cpp" />
   </ItemGroup>
