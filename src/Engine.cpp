@@ -35,7 +35,7 @@ Engine::Engine(int argc, char* argv[])
 		if (arg.compare("--onlyadvects") == 0)
 			m_bSphereAdvectorsOnly = true;
 
-		if (arg.compare("-p") == 0)
+		if (arg.compare("-path") == 0)
 			m_strSavePath = std::string(argv[i + 1]);
 
 		m_vstrArgs.push_back(arg);
