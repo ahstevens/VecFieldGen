@@ -6,7 +6,7 @@
 #include <filesystem>
 
 VectorFieldGenerator::VectorFieldGenerator()
-	: m_uiGridResolution(10u)
+	: m_iGridResolution(10u)
 	, m_fGaussianShape(1.f)
 {
 	m_RNG.seed(std::random_device()());
@@ -20,7 +20,7 @@ VectorFieldGenerator::~VectorFieldGenerator()
 
 void VectorFieldGenerator::setGridResolution(unsigned int res)
 {
-	m_uiGridResolution = res;
+	m_iGridResolution = res;
 }
 
 void VectorFieldGenerator::setGaussianShape(float gaussian)
@@ -54,16 +54,16 @@ void VectorFieldGenerator::generate()
 	m_v3DGridPairs.clear();
 
 	// grid cell size when discretizing [-1, 1] cube
-	float cellSize = (2.f / static_cast<float>(m_uiGridResolution - 1));
+	float cellSize = (2.f / static_cast<float>(m_iGridResolution - 1));
 
 	// create a regular 3D grid at the given resolution and interpolate the field at its nodes
-	for (unsigned int i = 0; i < m_uiGridResolution; ++i)
+	for (int i = 0; i < m_iGridResolution; ++i)
 	{
 		std::vector<std::vector<std::pair<glm::vec3, glm::vec3>>> frame;
-		for (unsigned int j = 0; j < m_uiGridResolution; ++j)
+		for (int j = 0; j < m_iGridResolution; ++j)
 		{
 			std::vector<std::pair<glm::vec3, glm::vec3>> row;
-			for (unsigned int k = 0; k < m_uiGridResolution; ++k)
+			for (int k = 0; k < m_iGridResolution; ++k)
 			{
 				// calculate grid point position
 				glm::vec3 point;
@@ -83,14 +83,14 @@ void VectorFieldGenerator::generate()
 
 void VectorFieldGenerator::solveLUdecomp()
 {
-	int nControlPoints = m_vControlPoints.size();
+	int nControlPoints = static_cast<int>(m_vControlPoints.size());
 
 	m_matControlPointKernel = Eigen::MatrixXf(nControlPoints, nControlPoints);
 	m_vCPXVals = Eigen::VectorXf(nControlPoints);
 	m_vCPYVals = Eigen::VectorXf(nControlPoints);
 	m_vCPZVals = Eigen::VectorXf(nControlPoints);
 
-	for (unsigned int i = 0u; i < nControlPoints; ++i)
+	for (int i = 0; i < nControlPoints; ++i)
 	{
 		// store each vector component of the control point value
 		m_vCPXVals(i) = m_vControlPoints[i].dir.x;
@@ -99,7 +99,7 @@ void VectorFieldGenerator::solveLUdecomp()
 
 		// fill in the distance matrix kernel entries for this control point
 		m_matControlPointKernel(i, i) = 1.f;
-		for (int j = static_cast<int>(i) - 1; j >= 0; --j)
+		for (int j = i - 1; j >= 0; --j)
 		{
 			float r = glm::length(m_vControlPoints[i].pos - m_vControlPoints[j].pos);
 			float gaussian = gaussianBasis(r, m_fGaussianShape);
@@ -118,7 +118,7 @@ glm::vec3 VectorFieldGenerator::interpolate(glm::vec3 pt)
 {
 	// find interpolated 3D vector by summing influence from each CP via radial basis function (RBF)
 	glm::vec3 outVec(0.f);
-	for (int m = 0; m < m_vControlPoints.size(); ++m)
+	for (int m = 0; m < static_cast<int>(m_vControlPoints.size()); ++m)
 	{
 		float r = glm::length(pt - m_vControlPoints[m].pos);
 		float gaussian = gaussianBasis(r, m_fGaussianShape);
@@ -289,9 +289,9 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 
 	float xMin, xMax, yMin, yMax, zMin, zMax;
 	xMin = yMin = zMin = 1.f;
-	xMax = yMax = zMax = m_uiGridResolution;
+	xMax = yMax = zMax = static_cast<float>(m_iGridResolution);
 	int xCells, yCells, zCells;
-	xCells = yCells = zCells = m_uiGridResolution;
+	xCells = yCells = zCells = m_iGridResolution;
 	int numTimesteps = 1;
 
 	fwrite(&xMin, sizeof(float), 1, exportFile);
@@ -319,11 +319,11 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 		fwrite(&n, sizeof(float), 1, exportFile);
 	}
 
-	for (int x = 0; x < m_uiGridResolution; x++)
+	for (int x = 0; x < m_iGridResolution; x++)
 	{
-		for (int y = 0; y < m_uiGridResolution; y++)
+		for (int y = 0; y < m_iGridResolution; y++)
 		{
-			for (int z = 0; z < m_uiGridResolution; z++)
+			for (int z = 0; z < m_iGridResolution; z++)
 			{
 				glm::vec3 dir = m_v3DGridPairs[z][y][x].second;
 

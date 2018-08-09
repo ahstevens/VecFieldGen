@@ -25,13 +25,37 @@ float m_fSphereRadius = 0.5f;
 std::string m_strSavePath("flowgrid.fg");
 std::string m_strCPPath;
 
+bool processArgs(int argc, char * argv[]);
+void printUsage();
 bool generateField();
 
 int main(int argc, char * argv[]) 
 {
+	if (processArgs(argc, argv))
+	{
+		m_pVFG = new VectorFieldGenerator();
+
+		if (generateField())
+			m_pVFG->save(m_strSavePath, !m_bSilent);
+
+		delete m_pVFG;
+	}
+
+    return EXIT_SUCCESS;
+}
+
+bool processArgs(int argc, char * argv[])
+{
 	for (int i = 1; i < argc; ++i)
 	{
 		std::string arg(argv[i]);
+		m_vstrArgs.push_back(arg);
+
+		if (arg.compare("--help") == 0 || arg.compare("-h") == 0)
+		{
+			printUsage();
+			return false;
+		}
 
 		if (arg.compare("--silent") == 0)
 			m_bSilent = true;
@@ -88,35 +112,30 @@ int main(int argc, char * argv[])
 			m_bCheckSphereAdvection = true;
 			m_fDeltaT = std::stof(std::string(argv[i + 1]));
 		}
-
-		m_vstrArgs.push_back(arg);
 	}
 
-	if (generateField())
-		m_pVFG->save(m_strSavePath, !m_bSilent);
-
-	delete m_pVFG;
-
-    return EXIT_SUCCESS;
+	return true;
 }
 
-std::vector<std::string> split(std::string target, std::string delim)
+void printUsage()
 {
-	std::vector<std::string> v;
-	if (!target.empty()) {
-		std::string::size_type start = 0;
-		do {
-			size_t x = target.find(delim, start);
-			if (x == std::string::npos)
-				break;
-
-			v.push_back(target.substr(start, x - start));
-			start += delim.size();
-		} while (true);
-
-		v.push_back(target.substr(start));
-	}
-	return v;
+	std::cout << std::endl;
+	std::cout << "VecFieldGen is a utility to generate flow fields using control points and a Gaussian Radial basis Function (RBF). The steady-state flow field is generated in R^3 and bounded within [-1,1] before being rediscretized for output as a flow grid at the specified grid resolution." << std::endl;
+	std::cout << "usage: VecFieldGen [options]" << std::endl;
+	std::cout << "\t" << "options:" << std::endl;
+	std::cout << "\t" << "\t" << "--help, -h" << "\t\t" << "Displays this help text" << std::endl;
+	std::cout << "\t" << "\t" << "--silent" << "\t\t" << "Do not print status to stdout" << std::endl;
+	std::cout << "\t" << "\t" << "--checksphere" << "\t\t" << "Perform a particle advection test through through a sphere of a given radius over a specified time interval. Default: disabled" << std::endl;
+	std::cout << "\t" << "\t" << "--onlyadvects" << "\t\t" << "Flowgrid produced must successfully advect a particle through the sphere. This flag should only be used in conjunction with random control points. Default: disabled" << std::endl;
+	std::cout << "\t" << "\t" << "-radius <float>" << "\t\t" << "Set the radius of the particle advection test sphere. Default: 0.5" << std::endl;
+	std::cout << "\t" << "\t" << "-duration <float>" << "\t" << "Set the time duration for the particle advection test. Default: 10.0" << std::endl;
+	std::cout << "\t" << "\t" << "-dt <float>" << "\t\t" << "Set the time step for the forward Euler particle advection test. Default: 0.01111111" << std::endl;
+	std::cout << "\t" << "\t" << "-cpcount <int>" << "\t\t" << "Number of random control points to generate. Default: 6" << std::endl;
+	std::cout << "\t" << "\t" << "-cpfile <file>" << "\t\t" << "Path to file containing custom control points. Disables random control point generation. Default: disabled. File format (one per line): posX,posY,posZ,dirX,dirY,dirZ" << std::endl;
+	std::cout << "\t" << "\t" << "-grid <int>" << "\t\t" << "Set the 3D flow grid resolution. Default: 32" << std::endl;
+	std::cout << "\t" << "\t" << "-gaussian <float>" << "\t" << "Set the Gaussian shape for the radial basis function. Default: 1.2" << std::endl;
+	std::cout << "\t" << "\t" << "-outfile <file>" << "\t\t" << "Path and name of the output file. Default: flowgrid.fg" << std::endl;
+	std::cout << std::endl;
 }
 
 bool loadCustomCPs()
@@ -153,7 +172,7 @@ bool loadCustomCPs()
 
 			if (vals.size() != 6)
 			{
-				if (!m_bSilent) printf("Cannot parse control point: %s\n", line);
+				if (!m_bSilent) printf("Cannot parse control point: %s\n", line.c_str());
 				continue;
 			}
 
@@ -182,8 +201,6 @@ bool loadCustomCPs()
 
 bool generateField()
 {
-	m_pVFG = new VectorFieldGenerator();
-
 	m_pVFG->setGridResolution(m_nGridResolution);
 	m_pVFG->setGaussianShape(m_fGaussianShape);
 
