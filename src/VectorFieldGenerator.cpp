@@ -361,6 +361,9 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 		return false;
 	}
 
+	// TODO: Need to scale the points and directions (lambdas too? will a uniform scaling transformation mess up the weights?)
+	//       from [-1, 1] to [0, gridResolution)
+	float cellSize = (2.f / static_cast<float>(m_iGridResolution - 1));
 	for (int i = 0; i < m_vControlPoints.size(); ++i)
 	{
 		metaFile << "CP" << i << "_POINT," << m_vControlPoints[i].pos.x << "," << m_vControlPoints[i].pos.y << "," << m_vControlPoints[i].pos.z << std::endl;
