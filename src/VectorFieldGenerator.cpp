@@ -330,8 +330,8 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 				// Change from +y up to +z up
 				float u, v, w;
 				u = dir.x;  // EAST
-				v = -dir.z; // NORTH
-				w = dir.y;  // UP (SKY)
+				v = dir.y; // NORTH
+				w = dir.z;  // UP (SKY)
 
 				int one = 1;
 				fwrite(&one, sizeof(int), 1, exportFile); //just write out 1 (true) for all
