@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <unordered_map>
 #include "VectorFieldGenerator.h"
 
 std::vector<std::string> m_vstrArgs;
@@ -144,11 +145,9 @@ bool loadCustomCPs()
 
 	std::ifstream cpFile;
 
-	if (!m_bSilent) printf("opening: %s\n", m_strCPPath.c_str());
-
 	cpFile.open(m_strCPPath);
 
-	int cpCount = 0;
+	std::unordered_map<std::string, std::pair<glm::vec3, glm::vec3>> CPMap;
 
 	if (cpFile.is_open())
 	{
@@ -157,46 +156,51 @@ bool loadCustomCPs()
 
 		while (std::getline(cpFile, line))
 		{
-			std::vector<float> vals;
-
 			std::stringstream ss(line);
 
-			float tmpVal;
+			std::string cpName, cpAttr;
+			std::getline(ss, cpName, '_');
+			std::getline(ss, cpAttr, ',');
 
-			while (ss >> tmpVal)
+			std::string cell;
+			std::vector<float> vals;
+
+			while (std::getline(ss, cell, ','))
 			{
+				float tmpVal = std::stof(cell);
 				vals.push_back(tmpVal);
-				if (ss.peek() == ',')
-					ss.ignore();
 			}
 
-			if (vals.size() != 6)
+			if (vals.size() == 3)
 			{
-				if (!m_bSilent) printf("Cannot parse control point: %s\n", line.c_str());
-				continue;
+				glm::vec3 vecData(vals[0], vals[1], vals[2]);
+
+				if (cpAttr.compare("POINT") == 0)
+				{
+					CPMap[cpName].first = vecData;
+				}
+				if (cpAttr.compare("DIRECTION") == 0)
+					CPMap[cpName].second = vecData;
 			}
-
-			glm::vec3 pos(vals[0], vals[1], vals[2]);
-			glm::vec3 dir(vals[3], vals[4], vals[5]);
-
-			m_pVFG->setControlPoint(pos, dir);
-			cpCount++;
+			else
+				continue;
 		}
-	}
-	else
-	{
-		if (!m_bSilent) printf("Unable to open control point input file %s\n", m_strCPPath.c_str());
-		return false;
+
+		cpFile.close();
+
+		for (auto &cp : CPMap)
+			m_pVFG->setControlPoint(cp.second.first, cp.second.second);
+
+
+		if (!m_bSilent) printf("VecFieldGen: Ingested %zi control points from %s\n", CPMap.size(), m_strCPPath.c_str());
+
+		if (CPMap.size() == 0)
+			return false;
+
+		return true;
 	}
 	
-	cpFile.close();
-	
-	if (!m_bSilent) printf("Ingested %i control points from %s\n", cpCount, m_strCPPath.c_str());
-
-	if (cpCount == 0)
-		return false;
-
-	return true;
+	return false;
 }
 
 bool generateField()
@@ -209,7 +213,7 @@ bool generateField()
 	else
 		if (!loadCustomCPs())
 		{
-			if (!m_bSilent) std::cout << "ERROR: Could not load custom control points from file " << m_strCPPath << std::endl;
+			if (!m_bSilent) std::cout << "VecFieldGen: ERROR: Could not load custom control points from file " << m_strCPPath << std::endl;
 			return false;
 		}
 	
@@ -223,7 +227,7 @@ bool generateField()
 
 		while (!m_bCustomCPs && m_bSphereAdvectorsOnly && !advected)
 		{
-			if (!m_bSilent) std::cout << "Regenerating vector field because particle failed to advect through sphere (r = " << m_fSphereRadius << ") in " << m_fAdvectionTime << " seconds" << std::endl;
+			if (!m_bSilent) std::cout << "VecFieldGen: Regenerating vector field because particle failed to advect through sphere (r = " << m_fSphereRadius << ") in " << m_fAdvectionTime << " seconds" << std::endl;
 			m_pVFG->createRandomControlPoints(m_nRandomCPs);
 			m_pVFG->generate();
 			advected = m_pVFG->checkSphereAdvection(m_fDeltaT, m_fAdvectionTime, glm::vec3(0.f), m_fSphereRadius, t, d, td, exitPt);
@@ -233,14 +237,14 @@ bool generateField()
 		{
 			if (advected)
 			{
-				std::cout << "Particle successfully advected in " << t << " seconds (" << t / m_fDeltaT << " time steps)" << std::endl;
-				std::cout << '\t' << "Particle traveled " << d << " units until advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl;
-				std::cout << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds" << std::endl << std::endl;
+				std::cout << "VecFieldGen: Particle successfully advected in " << t << " seconds (" << t / m_fDeltaT << " time steps)" << std::endl;
+				std::cout << "VecFieldGen:" << '\t' << "Particle traveled " << d << " units until advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl;
+				std::cout << "VecFieldGen:" << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds" << std::endl << std::endl;
 			}
 			else
 			{
-				std::cout << "Particled failed to advect!" << std::endl;
-				std::cout << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds without advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl << std::endl;
+				std::cout << "VecFieldGen: Particled failed to advect!" << std::endl;
+				std::cout << "VecFieldGen:" << '\t' << "Particle traveled " << td << " total units in " << m_fAdvectionTime << " seconds without advecting through sphere (r = " << m_fSphereRadius << ")" << std::endl << std::endl;
 			}
 		}
 	}

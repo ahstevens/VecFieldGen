@@ -275,12 +275,12 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 {
 	FILE *exportFile;
 
-	if (verbose) printf("opening: %s\n", path.c_str());
+	if (verbose) printf("VecFieldGen: Opening FlowGrid %s for export\n", path.c_str());
 	fopen_s(&exportFile, path.c_str(), "wb");
 
 	if (exportFile == NULL)
 	{
-		if (verbose) printf("Unable to open flowgrid export file!");
+		if (verbose) printf("VecFieldGen: Unable to open FlowGrid export file!");
 		return false;
 	}
 
@@ -344,20 +344,20 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 
 	fclose(exportFile);
 
-	if (verbose) printf("Exported FlowGrid to %s\n", path.c_str());
+	if (verbose) printf("VecFieldGen: Exported FlowGrid to %s\n", path.c_str());
 
 
 	using namespace std::experimental::filesystem::v1;
 	std::string metaFileName = path + ".cp";
 	std::ofstream metaFile;
 
-	if (verbose) printf("opening: %s\n", metaFileName.c_str());
+	if (verbose) printf("VecFieldGen: Opening metafile %s\n", metaFileName.c_str());
 
 	metaFile.open(metaFileName);
 
 	if (!metaFile.is_open())
 	{
-		if (verbose) printf("Unable to open flowgrid metadata export file!");
+		if (verbose) printf("VecFieldGen: Unable to open FlowGrid metadata export file!");
 		return false;
 	}
 
@@ -373,7 +373,7 @@ bool VectorFieldGenerator::save(std::string path, bool verbose)
 
 	metaFile.close();
 
-	if (verbose) printf("Exported FlowGrid metadata file to %s\n", metaFileName.c_str());
+	if (verbose) printf("VecFieldGen: Exported FlowGrid metadata file to %s\n", metaFileName.c_str());
 
 	return true;
 }
