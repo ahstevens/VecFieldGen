@@ -71,7 +71,8 @@ void VectorFieldGenerator::generate()
 				point.y = -1.f + j * cellSize;
 				point.z = -1.f + i * cellSize;
 
-				glm::vec3 flowHere = interpolate(point);
+				// Get vector at point and scale it to the new grid
+				glm::vec3 flowHere = interpolate(point) * static_cast<float>(m_iGridResolution) * 0.5f;
 
 				row.push_back(std::pair<glm::vec3, glm::vec3>(point, flowHere));
 			}
